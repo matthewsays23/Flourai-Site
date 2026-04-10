@@ -17,30 +17,40 @@ export default function Dashboard() {
     document.documentElement.style.padding = "0";
     document.documentElement.style.background = "#edf6ef";
 
-    fetch(`${API_BASE}/api/auth/me`, {
-      credentials: "include",
-    })
-      .then(async (res) => {
+    const loadUser = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/me`, {
+          credentials: "include",
+        });
+
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to load user");
+
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to load user");
+        }
 
         setUser(data.user);
 
         if (data.user?.robloxId) {
-  fetch(
-    `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${data.user.robloxId}&size=150x150&format=Png&isCircular=false`
-  )
-    .then((res) => res.json())
-    .then((avatarData) => {
-      const imageUrl = avatarData.data?.[0]?.imageUrl;
-      if (imageUrl) {
-        setAvatar(imageUrl);
+          const avatarRes = await fetch(
+            `${API_BASE}/api/auth/avatar/${data.user.robloxId}`,
+            {
+              credentials: "include",
+            }
+          );
+
+          const avatarData = await avatarRes.json();
+
+          if (avatarData.ok && avatarData.imageUrl) {
+            setAvatar(avatarData.imageUrl);
+          }
+        }
+      } catch (err) {
+        setError(err.message || "Failed to load dashboard");
       }
-    })
-    .catch(() => {});
-}
-        setError(err.message);
-      });
+    };
+
+    loadUser();
 
     return () => {
       document.body.style.margin = "";
