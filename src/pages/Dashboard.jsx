@@ -18,26 +18,23 @@ export default function Dashboard() {
     document.documentElement.style.background = "#edf6ef";
 
     fetch(`${API_BASE}/api/auth/me`, {
-  credentials: "include",
-})
+      credentials: "include",
+    })
       .then(async (res) => {
         const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Failed to load user");
+        if (!res.ok) throw new Error(data.error || "Failed to load user");
 
         setUser(data.user);
 
         if (data.user?.robloxId) {
-          fetch(`${API_BASE}/api/auth/roblox-avatar/${data.user.robloxId}`, {
-            credentials: "include",
-          })
-            .then((res) => res.json())
-            .then((avatarData) => {
-              if (avatarData?.imageUrl) setAvatar(avatarData.imageUrl);
-            })
-            .catch(() => {});
+          setAvatar(
+            `https://www.roblox.com/headshot-thumbnail/image?userId=${data.user.robloxId}&width=150&height=150&format=png`
+          );
         }
       })
-      .catch((err) => setError(err.message));
+      .catch((err) => {
+        setError(err.message);
+      });
 
     return () => {
       document.body.style.margin = "";

@@ -6,7 +6,7 @@ const API_BASE =
 
 export default function Home() {
   const handleLogin = () => {
-    window.location.href = `${API_BASE}/auth/roblox/start`;
+    window.location.href = `${API_BASE}/api/auth/roblox/start`;
   };
 
   return (
@@ -37,9 +37,7 @@ export default function Home() {
           <div style={styles.heroLeft}>
             <p style={styles.kicker}>Flourai workspace</p>
 
-            <h1 style={styles.title}>
-              Welcome to Flourai.
-            </h1>
+            <h1 style={styles.title}>Welcome to Flourai.</h1>
 
             <p style={styles.subtitle}>
               A refined garden-inspired workspace for activity tracking, staff
@@ -95,8 +93,8 @@ export default function Home() {
                   <p style={styles.blockLabel}>Overview</p>
                   <h4 style={styles.blockTitle}>Elegant, calm, organized.</h4>
                   <p style={styles.blockText}>
-                    A central place for Flourai’s staff systems, member management,
-                    and internal operations.
+                    A central place for Flourai’s staff systems, member
+                    management, and internal operations.
                   </p>
                 </div>
 
@@ -357,7 +355,8 @@ const styles = {
     filter: "drop-shadow(0 18px 26px rgba(47,93,70,0.18))",
   },
   workspaceCard: {
-    background: "linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(247,252,248,0.72) 100%)",
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(247,252,248,0.72) 100%)",
     border: "1px solid rgba(255,255,255,0.9)",
     borderRadius: "28px",
     padding: "22px",
