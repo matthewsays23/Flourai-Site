@@ -1,51 +1,53 @@
 import React, { useEffect, useState } from "react";
 import flouraiLogo from "../assets/Text_Logo.png";
 
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "https://flourai-backend.onrender.com";
+
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [avatar, setAvatar] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
-  document.body.style.margin = "0";
-  document.body.style.padding = "0";
-  document.body.style.background = "#edf6ef";
-  document.documentElement.style.margin = "0";
-  document.documentElement.style.padding = "0";
-  document.documentElement.style.background = "#edf6ef";
+    document.body.style.margin = "0";
+    document.body.style.padding = "0";
+    document.body.style.background = "#edf6ef";
+    document.documentElement.style.margin = "0";
+    document.documentElement.style.padding = "0";
+    document.documentElement.style.background = "#edf6ef";
 
-  fetch("http://localhost:3001/me", {
-    credentials: "include",
-  })
-    .then(async (res) => {
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to load user");
-
-      setUser(data.user);
-
-      if (data.user?.robloxId) {
-        fetch(`http://localhost:3001/api/roblox-avatar/${data.user.robloxId}`, {
-          credentials: "include",
-        })
-          .then((res) => res.json())
-          .then((avatarData) => {
-            if (avatarData?.imageUrl) setAvatar(avatarData.imageUrl);
-          })
-          .catch(() => {});
-      }
+    fetch(`${API_BASE}/me`, {
+      credentials: "include",
     })
-    .catch((err) => setError(err.message));
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to load user");
 
-  return () => {
-    document.body.style.margin = "";
-    document.body.style.padding = "";
-    document.body.style.background = "";
-    document.documentElement.style.margin = "";
-    document.documentElement.style.padding = "";
-    document.documentElement.style.background = "";
-  };
-}, []);
+        setUser(data.user);
 
+        if (data.user?.robloxId) {
+          fetch(`${API_BASE}/api/roblox-avatar/${data.user.robloxId}`, {
+            credentials: "include",
+          })
+            .then((res) => res.json())
+            .then((avatarData) => {
+              if (avatarData?.imageUrl) setAvatar(avatarData.imageUrl);
+            })
+            .catch(() => {});
+        }
+      })
+      .catch((err) => setError(err.message));
+
+    return () => {
+      document.body.style.margin = "";
+      document.body.style.padding = "";
+      document.body.style.background = "";
+      document.documentElement.style.margin = "";
+      document.documentElement.style.padding = "";
+      document.documentElement.style.background = "";
+    };
+  }, []);
 
   return (
     <div style={styles.page}>
@@ -267,21 +269,19 @@ const styles = {
   },
 
   avatar: {
-  width: "54px",
-  height: "54px",
-  borderRadius: "50%",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "#4f8b67",
-  border: "2px solid rgba(255,255,255,0.15)",
-
-  boxShadow:
-    "0 0 0 3px rgba(124,255,180,0.15), 0 0 25px rgba(124,255,180,0.35), inset 0 1px 6px rgba(255,255,255,0.18)",
-
-  flexShrink: 0,
-  overflow: "hidden",
-},
+    width: "54px",
+    height: "54px",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "#4f8b67",
+    border: "2px solid rgba(255,255,255,0.15)",
+    boxShadow:
+      "0 0 0 3px rgba(124,255,180,0.15), 0 0 25px rgba(124,255,180,0.35), inset 0 1px 6px rgba(255,255,255,0.18)",
+    flexShrink: 0,
+    overflow: "hidden",
+  },
 
   avatarImg: {
     width: "100%",
@@ -428,21 +428,19 @@ const styles = {
   },
 
   accountAvatar: {
-  width: "66px",
-  height: "66px",
-  borderRadius: "50%",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "#4f8d68",
-  border: "2px solid rgba(255,255,255,0.6)",
-
-  boxShadow:
-    "0 0 0 4px rgba(124,255,180,0.18), 0 0 30px rgba(102,201,138,0.35), inset 0 2px 10px rgba(255,255,255,0.18)",
-
-  flexShrink: 0,
-  overflow: "hidden",
-},
+    width: "66px",
+    height: "66px",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "#4f8d68",
+    border: "2px solid rgba(255,255,255,0.6)",
+    boxShadow:
+      "0 0 0 4px rgba(124,255,180,0.18), 0 0 30px rgba(102,201,138,0.35), inset 0 2px 10px rgba(255,255,255,0.18)",
+    flexShrink: 0,
+    overflow: "hidden",
+  },
 
   accountAvatarImg: {
     width: "100%",
