@@ -27,12 +27,18 @@ export default function Dashboard() {
         setUser(data.user);
 
         if (data.user?.robloxId) {
-          setAvatar(
-            `https://www.roblox.com/headshot-thumbnail/image?userId=${data.user.robloxId}&width=150&height=150&format=png`
-          );
-        }
-      })
-      .catch((err) => {
+  fetch(
+    `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${data.user.robloxId}&size=150x150&format=Png&isCircular=false`
+  )
+    .then((res) => res.json())
+    .then((avatarData) => {
+      const imageUrl = avatarData.data?.[0]?.imageUrl;
+      if (imageUrl) {
+        setAvatar(imageUrl);
+      }
+    })
+    .catch(() => {});
+}
         setError(err.message);
       });
 
