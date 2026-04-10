@@ -1,0 +1,481 @@
+import React from "react";
+import flouraiLogo from "../assets/Text_Logo.png";
+
+export default function Home() {
+  const handleLogin = () => {
+    window.location.href = "http://localhost:3001/auth/roblox/start";
+  };
+
+  return (
+    <div style={styles.page}>
+      <div style={styles.glowOne}></div>
+      <div style={styles.glowTwo}></div>
+      <div style={styles.glowThree}></div>
+
+      <header style={styles.nav}>
+        <div style={styles.brandWrap}>
+          <div style={styles.brandLeaf}></div>
+          <span style={styles.brandText}>Flourai</span>
+        </div>
+
+        <div style={styles.navLinks}>
+          <span style={styles.navLink}>Home</span>
+          <span style={styles.navLink}>Workspace</span>
+          <span style={styles.navLink}>Activity</span>
+        </div>
+
+        <button style={styles.navButton} onClick={handleLogin}>
+          Enter Flourai
+        </button>
+      </header>
+
+      <main style={styles.main}>
+        <section style={styles.hero}>
+          <div style={styles.heroLeft}>
+            <p style={styles.kicker}>Flourai workspace</p>
+
+            <h1 style={styles.title}>
+              Welcome to Flourai.
+            </h1>
+
+            <p style={styles.subtitle}>
+              A refined garden-inspired workspace for activity tracking, staff
+              organization, sessions, and community management — built entirely
+              around the Flourai experience.
+            </p>
+
+            <div style={styles.buttonRow}>
+              <button style={styles.primaryButton} onClick={handleLogin}>
+                Continue with Roblox
+              </button>
+
+              <button style={styles.secondaryButton}>
+                View Workspace
+              </button>
+            </div>
+
+            <div style={styles.infoRow}>
+              <div style={styles.infoCard}>
+                <span style={styles.infoLabel}>Theme</span>
+                <strong style={styles.infoValue}>Botanical</strong>
+              </div>
+
+              <div style={styles.infoCard}>
+                <span style={styles.infoLabel}>Purpose</span>
+                <strong style={styles.infoValue}>Internal Management</strong>
+              </div>
+
+              <div style={styles.infoCard}>
+                <span style={styles.infoLabel}>Focus</span>
+                <strong style={styles.infoValue}>Activity & Staff</strong>
+              </div>
+            </div>
+          </div>
+
+          <div style={styles.heroRight}>
+            <div style={styles.logoPanel}>
+              <img src={flouraiLogo} alt="Flourai" style={styles.logoImage} />
+            </div>
+
+            <div style={styles.workspaceCard}>
+              <div style={styles.workspaceTop}>
+                <div>
+                  <p style={styles.workspaceLabel}>Flourai system</p>
+                  <h3 style={styles.workspaceTitle}>Workspace Preview</h3>
+                </div>
+
+                <div style={styles.livePill}>Garden Live</div>
+              </div>
+
+              <div style={styles.workspaceGrid}>
+                <div style={styles.workspaceLarge}>
+                  <p style={styles.blockLabel}>Overview</p>
+                  <h4 style={styles.blockTitle}>Elegant, calm, organized.</h4>
+                  <p style={styles.blockText}>
+                    A central place for Flourai’s staff systems, member management,
+                    and internal operations.
+                  </p>
+                </div>
+
+                <div style={styles.workspaceSmall}>
+                  <p style={styles.blockLabel}>Activity</p>
+                  <h4 style={styles.smallStat}>24h</h4>
+                  <p style={styles.blockText}>Tracked this week</p>
+                </div>
+
+                <div style={styles.workspaceSmall}>
+                  <p style={styles.blockLabel}>Sessions</p>
+                  <h4 style={styles.smallStat}>08</h4>
+                  <p style={styles.blockText}>Managed events</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section style={styles.bottomSection}>
+          <div style={styles.bottomHeader}>
+            <p style={styles.bottomKicker}>Designed for Flourai</p>
+            <h2 style={styles.bottomTitle}>
+              Built by vorvyns, data managed safe.
+            </h2>
+          </div>
+
+          <div style={styles.featureGrid}>
+            <div style={styles.featureCard}>
+              <div style={styles.featureDot}></div>
+              <h3 style={styles.featureTitle}>Activity Tracking</h3>
+              <p style={styles.featureText}>
+                Monitor weekly progress, participation, and contribution with a
+                cleaner interface tailored to Flourai.
+              </p>
+            </div>
+
+            <div style={styles.featureCard}>
+              <div style={styles.featureDot}></div>
+              <h3 style={styles.featureTitle}>Staff Oversight</h3>
+              <p style={styles.featureText}>
+                Organize internal roles, sessions, and moderation through a
+                softer management experience.
+              </p>
+            </div>
+
+            <div style={styles.featureCard}>
+              <div style={styles.featureDot}></div>
+              <h3 style={styles.featureTitle}>Flourai Identity</h3>
+              <p style={styles.featureText}>
+                Every part of the workspace reflects Flourai’s own visual style,
+                tone, and garden-inspired atmosphere.
+              </p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+const styles = {
+  page: {
+    minHeight: "100vh",
+    position: "relative",
+    overflow: "hidden",
+    background:
+      "linear-gradient(180deg, #fbfff9 0%, #f2f9f1 46%, #edf6ef 100%)",
+    fontFamily:
+      'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    color: "#203229",
+  },
+  glowOne: {
+    position: "absolute",
+    top: "-120px",
+    left: "-120px",
+    width: "520px",
+    height: "520px",
+    borderRadius: "999px",
+    background: "rgba(123, 207, 155, 0.28)",
+    filter: "blur(90px)",
+  },
+  glowTwo: {
+    position: "absolute",
+    bottom: "-120px",
+    right: "-60px",
+    width: "500px",
+    height: "500px",
+    borderRadius: "999px",
+    background: "rgba(191, 232, 208, 0.34)",
+    filter: "blur(90px)",
+  },
+  glowThree: {
+    position: "absolute",
+    top: "220px",
+    right: "220px",
+    width: "260px",
+    height: "260px",
+    borderRadius: "999px",
+    background: "rgba(215, 182, 111, 0.16)",
+    filter: "blur(70px)",
+  },
+  nav: {
+    position: "relative",
+    zIndex: 2,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "26px 40px",
+  },
+  brandWrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+  brandLeaf: {
+    width: "14px",
+    height: "14px",
+    borderRadius: "999px",
+    background: "linear-gradient(135deg, #7bcf9b 0%, #2f5d46 100%)",
+    boxShadow: "0 0 20px rgba(109,189,139,0.5)",
+  },
+  brandText: {
+    fontSize: "24px",
+    fontWeight: 700,
+    letterSpacing: "-0.02em",
+  },
+  navLinks: {
+    display: "flex",
+    gap: "28px",
+    color: "#5f7668",
+    fontWeight: 500,
+  },
+  navLink: {
+    cursor: "default",
+  },
+  navButton: {
+    border: "1px solid rgba(47,93,70,0.12)",
+    background: "rgba(255,255,255,0.78)",
+    color: "#203229",
+    padding: "13px 20px",
+    borderRadius: "16px",
+    cursor: "pointer",
+    fontSize: "15px",
+    fontWeight: 700,
+    boxShadow: "0 10px 30px rgba(30,60,40,0.06)",
+  },
+  main: {
+    position: "relative",
+    zIndex: 2,
+    padding: "20px 40px 70px",
+  },
+  hero: {
+    maxWidth: "1380px",
+    margin: "0 auto",
+    minHeight: "78vh",
+    display: "grid",
+    gridTemplateColumns: "1.05fr 0.95fr",
+    gap: "28px",
+    alignItems: "center",
+  },
+  heroLeft: {
+    paddingRight: "14px",
+  },
+  kicker: {
+    margin: 0,
+    marginBottom: "16px",
+    textTransform: "uppercase",
+    letterSpacing: "0.18em",
+    fontSize: "13px",
+    color: "#6a8b79",
+    fontWeight: 700,
+  },
+  title: {
+    margin: 0,
+    fontSize: "76px",
+    lineHeight: 0.96,
+    letterSpacing: "-0.05em",
+  },
+  subtitle: {
+    marginTop: "22px",
+    maxWidth: "680px",
+    fontSize: "20px",
+    lineHeight: 1.8,
+    color: "#53685d",
+  },
+  buttonRow: {
+    display: "flex",
+    gap: "14px",
+    marginTop: "28px",
+    flexWrap: "wrap",
+  },
+  primaryButton: {
+    border: "none",
+    background: "linear-gradient(135deg, #2f5d46 0%, #214434 100%)",
+    color: "white",
+    padding: "15px 24px",
+    borderRadius: "18px",
+    cursor: "pointer",
+    fontSize: "15px",
+    fontWeight: 700,
+    boxShadow: "0 18px 34px rgba(33,68,52,0.22)",
+  },
+  secondaryButton: {
+    border: "1px solid rgba(47,93,70,0.12)",
+    background: "rgba(255,255,255,0.8)",
+    color: "#203229",
+    padding: "15px 24px",
+    borderRadius: "18px",
+    cursor: "pointer",
+    fontSize: "15px",
+    fontWeight: 700,
+    boxShadow: "0 12px 28px rgba(0,0,0,0.04)",
+  },
+  infoRow: {
+    marginTop: "26px",
+    display: "flex",
+    gap: "14px",
+    flexWrap: "wrap",
+  },
+  infoCard: {
+    minWidth: "160px",
+    background: "rgba(255,255,255,0.78)",
+    border: "1px solid rgba(255,255,255,0.9)",
+    borderRadius: "18px",
+    padding: "14px 16px",
+    boxShadow: "0 10px 30px rgba(30,60,40,0.05)",
+  },
+  infoLabel: {
+    display: "block",
+    fontSize: "12px",
+    textTransform: "uppercase",
+    letterSpacing: "0.14em",
+    color: "#769181",
+    marginBottom: "7px",
+    fontWeight: 700,
+  },
+  infoValue: {
+    fontSize: "15px",
+  },
+  heroRight: {
+    display: "grid",
+    gap: "18px",
+  },
+  logoPanel: {
+    background: "rgba(255,255,255,0.72)",
+    border: "1px solid rgba(255,255,255,0.9)",
+    borderRadius: "32px",
+    padding: "28px",
+    boxShadow: "0 25px 60px rgba(24,48,36,0.08)",
+    backdropFilter: "blur(14px)",
+    WebkitBackdropFilter: "blur(14px)",
+  },
+  logoImage: {
+    width: "100%",
+    display: "block",
+    objectFit: "contain",
+    filter: "drop-shadow(0 18px 26px rgba(47,93,70,0.18))",
+  },
+  workspaceCard: {
+    background: "linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(247,252,248,0.72) 100%)",
+    border: "1px solid rgba(255,255,255,0.9)",
+    borderRadius: "28px",
+    padding: "22px",
+    boxShadow: "0 25px 60px rgba(24,48,36,0.08)",
+  },
+  workspaceTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "16px",
+  },
+  workspaceLabel: {
+    margin: 0,
+    fontSize: "12px",
+    textTransform: "uppercase",
+    letterSpacing: "0.16em",
+    color: "#739080",
+    fontWeight: 700,
+  },
+  workspaceTitle: {
+    margin: "8px 0 0",
+    fontSize: "28px",
+  },
+  livePill: {
+    padding: "8px 12px",
+    borderRadius: "999px",
+    background: "rgba(191, 232, 208, 0.52)",
+    color: "#2f5d46",
+    fontWeight: 700,
+    fontSize: "13px",
+  },
+  workspaceGrid: {
+    display: "grid",
+    gridTemplateColumns: "1.15fr 1fr 1fr",
+    gap: "14px",
+  },
+  workspaceLarge: {
+    background: "rgba(242, 249, 241, 0.95)",
+    borderRadius: "22px",
+    padding: "18px",
+    minHeight: "150px",
+  },
+  workspaceSmall: {
+    background: "rgba(232, 245, 236, 0.95)",
+    borderRadius: "22px",
+    padding: "18px",
+    minHeight: "150px",
+  },
+  blockLabel: {
+    margin: 0,
+    fontSize: "12px",
+    textTransform: "uppercase",
+    letterSpacing: "0.14em",
+    color: "#749081",
+    fontWeight: 700,
+  },
+  blockTitle: {
+    margin: "10px 0 8px",
+    fontSize: "24px",
+    lineHeight: 1.1,
+  },
+  blockText: {
+    margin: 0,
+    color: "#587063",
+    lineHeight: 1.65,
+  },
+  smallStat: {
+    margin: "16px 0 8px",
+    fontSize: "36px",
+    lineHeight: 1,
+  },
+  bottomSection: {
+    maxWidth: "1380px",
+    margin: "6px auto 0",
+    paddingTop: "12px",
+  },
+  bottomHeader: {
+    marginBottom: "18px",
+  },
+  bottomKicker: {
+    margin: 0,
+    fontSize: "12px",
+    textTransform: "uppercase",
+    letterSpacing: "0.16em",
+    color: "#72907f",
+    fontWeight: 700,
+  },
+  bottomTitle: {
+    margin: "10px 0 0",
+    fontSize: "42px",
+    letterSpacing: "-0.03em",
+    maxWidth: "760px",
+  },
+  featureGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: "18px",
+    marginTop: "18px",
+  },
+  featureCard: {
+    background: "rgba(255,255,255,0.78)",
+    border: "1px solid rgba(255,255,255,0.9)",
+    borderRadius: "26px",
+    padding: "24px",
+    boxShadow: "0 18px 40px rgba(24,48,36,0.05)",
+  },
+  featureDot: {
+    width: "12px",
+    height: "12px",
+    borderRadius: "999px",
+    background: "linear-gradient(135deg, #7bcf9b 0%, #d7b66f 100%)",
+    marginBottom: "14px",
+  },
+  featureTitle: {
+    margin: 0,
+    fontSize: "24px",
+  },
+  featureText: {
+    marginTop: "10px",
+    color: "#5a7063",
+    lineHeight: 1.75,
+    fontSize: "16px",
+  },
+};
