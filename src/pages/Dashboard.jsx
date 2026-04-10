@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import flouraiLogo from "../assets/Text_Logo.png";
 
 const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "https://flourai-backend.onrender.com";
+  import.meta.env.VITE_API_BASE_URL || "https://api.flourai.io";
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
