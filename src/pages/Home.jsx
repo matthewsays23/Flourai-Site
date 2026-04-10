@@ -37,7 +37,9 @@ export default function Home() {
           <div style={styles.heroLeft}>
             <p style={styles.kicker}>Flourai workspace</p>
 
-            <h1 style={styles.title}>Welcome to Flourai.</h1>
+            <h1 style={styles.title}>
+              Welcome to Flourai.
+            </h1>
 
             <p style={styles.subtitle}>
               A refined garden-inspired workspace for activity tracking, staff
@@ -50,7 +52,9 @@ export default function Home() {
                 Continue with Roblox
               </button>
 
-              <button style={styles.secondaryButton}>View Workspace</button>
+              <button style={styles.secondaryButton}>
+                View Workspace
+              </button>
             </div>
 
             <div style={styles.infoRow}>
@@ -74,6 +78,78 @@ export default function Home() {
           <div style={styles.heroRight}>
             <div style={styles.logoPanel}>
               <img src={flouraiLogo} alt="Flourai" style={styles.logoImage} />
+            </div>
+
+            <div style={styles.workspaceCard}>
+              <div style={styles.workspaceTop}>
+                <div>
+                  <p style={styles.workspaceLabel}>Flourai system</p>
+                  <h3 style={styles.workspaceTitle}>Workspace Preview</h3>
+                </div>
+
+                <div style={styles.livePill}>Garden Live</div>
+              </div>
+
+              <div style={styles.workspaceGrid}>
+                <div style={styles.workspaceLarge}>
+                  <p style={styles.blockLabel}>Overview</p>
+                  <h4 style={styles.blockTitle}>Elegant, calm, organized.</h4>
+                  <p style={styles.blockText}>
+                    A central place for Flourai’s staff systems, member management,
+                    and internal operations.
+                  </p>
+                </div>
+
+                <div style={styles.workspaceSmall}>
+                  <p style={styles.blockLabel}>Activity</p>
+                  <h4 style={styles.smallStat}>24h</h4>
+                  <p style={styles.blockText}>Tracked this week</p>
+                </div>
+
+                <div style={styles.workspaceSmall}>
+                  <p style={styles.blockLabel}>Sessions</p>
+                  <h4 style={styles.smallStat}>08</h4>
+                  <p style={styles.blockText}>Managed events</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section style={styles.bottomSection}>
+          <div style={styles.bottomHeader}>
+            <p style={styles.bottomKicker}>Designed for Flourai</p>
+            <h2 style={styles.bottomTitle}>
+              Built by vorvyns, data managed safe.
+            </h2>
+          </div>
+
+          <div style={styles.featureGrid}>
+            <div style={styles.featureCard}>
+              <div style={styles.featureDot}></div>
+              <h3 style={styles.featureTitle}>Activity Tracking</h3>
+              <p style={styles.featureText}>
+                Monitor weekly progress, participation, and contribution with a
+                cleaner interface tailored to Flourai.
+              </p>
+            </div>
+
+            <div style={styles.featureCard}>
+              <div style={styles.featureDot}></div>
+              <h3 style={styles.featureTitle}>Staff Oversight</h3>
+              <p style={styles.featureText}>
+                Organize internal roles, sessions, and moderation through a
+                softer management experience.
+              </p>
+            </div>
+
+            <div style={styles.featureCard}>
+              <div style={styles.featureDot}></div>
+              <h3 style={styles.featureTitle}>Flourai Identity</h3>
+              <p style={styles.featureText}>
+                Every part of the workspace reflects Flourai’s own visual style,
+                tone, and garden-inspired atmosphere.
+              </p>
             </div>
           </div>
         </section>
@@ -279,5 +355,130 @@ const styles = {
     display: "block",
     objectFit: "contain",
     filter: "drop-shadow(0 18px 26px rgba(47,93,70,0.18))",
+  },
+  workspaceCard: {
+    background: "linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(247,252,248,0.72) 100%)",
+    border: "1px solid rgba(255,255,255,0.9)",
+    borderRadius: "28px",
+    padding: "22px",
+    boxShadow: "0 25px 60px rgba(24,48,36,0.08)",
+  },
+  workspaceTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "16px",
+  },
+  workspaceLabel: {
+    margin: 0,
+    fontSize: "12px",
+    textTransform: "uppercase",
+    letterSpacing: "0.16em",
+    color: "#739080",
+    fontWeight: 700,
+  },
+  workspaceTitle: {
+    margin: "8px 0 0",
+    fontSize: "28px",
+  },
+  livePill: {
+    padding: "8px 12px",
+    borderRadius: "999px",
+    background: "rgba(191, 232, 208, 0.52)",
+    color: "#2f5d46",
+    fontWeight: 700,
+    fontSize: "13px",
+  },
+  workspaceGrid: {
+    display: "grid",
+    gridTemplateColumns: "1.15fr 1fr 1fr",
+    gap: "14px",
+  },
+  workspaceLarge: {
+    background: "rgba(242, 249, 241, 0.95)",
+    borderRadius: "22px",
+    padding: "18px",
+    minHeight: "150px",
+  },
+  workspaceSmall: {
+    background: "rgba(232, 245, 236, 0.95)",
+    borderRadius: "22px",
+    padding: "18px",
+    minHeight: "150px",
+  },
+  blockLabel: {
+    margin: 0,
+    fontSize: "12px",
+    textTransform: "uppercase",
+    letterSpacing: "0.14em",
+    color: "#749081",
+    fontWeight: 700,
+  },
+  blockTitle: {
+    margin: "10px 0 8px",
+    fontSize: "24px",
+    lineHeight: 1.1,
+  },
+  blockText: {
+    margin: 0,
+    color: "#587063",
+    lineHeight: 1.65,
+  },
+  smallStat: {
+    margin: "16px 0 8px",
+    fontSize: "36px",
+    lineHeight: 1,
+  },
+  bottomSection: {
+    maxWidth: "1380px",
+    margin: "6px auto 0",
+    paddingTop: "12px",
+  },
+  bottomHeader: {
+    marginBottom: "18px",
+  },
+  bottomKicker: {
+    margin: 0,
+    fontSize: "12px",
+    textTransform: "uppercase",
+    letterSpacing: "0.16em",
+    color: "#72907f",
+    fontWeight: 700,
+  },
+  bottomTitle: {
+    margin: "10px 0 0",
+    fontSize: "42px",
+    letterSpacing: "-0.03em",
+    maxWidth: "760px",
+  },
+  featureGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: "18px",
+    marginTop: "18px",
+  },
+  featureCard: {
+    background: "rgba(255,255,255,0.78)",
+    border: "1px solid rgba(255,255,255,0.9)",
+    borderRadius: "26px",
+    padding: "24px",
+    boxShadow: "0 18px 40px rgba(24,48,36,0.05)",
+  },
+  featureDot: {
+    width: "12px",
+    height: "12px",
+    borderRadius: "999px",
+    background: "linear-gradient(135deg, #7bcf9b 0%, #d7b66f 100%)",
+    marginBottom: "14px",
+  },
+  featureTitle: {
+    margin: 0,
+    fontSize: "24px",
+  },
+  featureText: {
+    marginTop: "10px",
+    color: "#5a7063",
+    lineHeight: 1.75,
+    fontSize: "16px",
   },
 };
