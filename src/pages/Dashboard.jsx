@@ -17,9 +17,9 @@ export default function Dashboard() {
     document.documentElement.style.padding = "0";
     document.documentElement.style.background = "#edf6ef";
 
-    fetch(`${API_BASE}/me`, {
-      credentials: "include",
-    })
+    fetch(`${API_BASE}/api/auth/me`, {
+  credentials: "include",
+})
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Failed to load user");
@@ -27,7 +27,7 @@ export default function Dashboard() {
         setUser(data.user);
 
         if (data.user?.robloxId) {
-          fetch(`${API_BASE}/api/roblox-avatar/${data.user.robloxId}`, {
+          fetch(`${API_BASE}/api/auth/roblox-avatar/${data.user.robloxId}`, {
             credentials: "include",
           })
             .then((res) => res.json())
