@@ -444,7 +444,7 @@ export default function Dashboard() {
 
     {membersLoading ? (
       <div style={styles.loading}>Loading members...</div>
-    ) : filteredMembers.length > 0 ? (
+    ) : (
       <div style={styles.membersGrid}>
         {filteredMembers.map((member) => (
           <div key={member.userId} style={styles.memberCard}>
@@ -452,13 +452,9 @@ export default function Dashboard() {
 
             <div style={styles.memberAvatar}>
               {member.avatar ? (
-                <img
-                  src={member.avatar}
-                  alt={`${member.displayName} avatar`}
-                  style={styles.memberAvatarImg}
-                />
+                <img src={member.avatar} style={styles.memberAvatarImg} />
               ) : (
-                member.displayName?.charAt(0)?.toUpperCase() || "M"
+                member.displayName?.charAt(0) || "M"
               )}
             </div>
 
@@ -468,22 +464,12 @@ export default function Dashboard() {
 
               <div style={styles.memberMetaRow}>
                 <span style={styles.memberBadge}>
-                  {member.roleLabel || member.roleName || "Member"}
+                  {member.roleLabel}
                 </span>
-
-                {member.isConnectedUser && (
-                  <span style={styles.memberBadgeSoft}>
-                    Connected Account
-                  </span>
-                )}
               </div>
             </div>
           </div>
         ))}
-      </div>
-    ) : (
-      <div style={styles.emptyState}>
-        No members found between ranks 23 and 44.
       </div>
     )}
   </div>
