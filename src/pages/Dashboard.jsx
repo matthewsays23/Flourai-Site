@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import flouraiLogo from "../assets/Text_Logo.png";
 
 const API_BASE =
@@ -27,9 +27,13 @@ export default function Dashboard() {
   const { isMobile, isTablet } = useResponsive();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const [activeTab, setActiveTab] = useState("Overview");
+
   const [user, setUser] = useState(null);
   const [avatar, setAvatar] = useState("");
   const [error, setError] = useState("");
+
+  const [memberSearch, setMemberSearch] = useState("");
 
   useEffect(() => {
     document.body.style.margin = "0";
@@ -88,6 +92,75 @@ export default function Dashboard() {
     if (!isMobile) setSidebarOpen(false);
   }, [isMobile]);
 
+  const mockMembers = useMemo(() => {
+    const baseMembers = [
+      {
+        userId: "1",
+        displayName: "Avery",
+        username: "flouraiteam",
+        role: "Leadership",
+        avatar: "",
+      },
+      {
+        userId: "2",
+        displayName: "Luna",
+        username: "gardenops",
+        role: "Management",
+        avatar: "",
+      },
+      {
+        userId: "3",
+        displayName: "Rowan",
+        username: "botanicalstaff",
+        role: "Staff",
+        avatar: "",
+      },
+      {
+        userId: "4",
+        displayName: "Iris",
+        username: "teacoordinator",
+        role: "Sessions",
+        avatar: "",
+      },
+      {
+        userId: "5",
+        displayName: "Sage",
+        username: "communitycare",
+        role: "Moderation",
+        avatar: "",
+      },
+    ];
+
+    if (user) {
+      return [
+        {
+          userId: user.robloxId,
+          displayName: user.displayName,
+          username: user.username,
+          role: "Connected Account",
+          avatar,
+        },
+        ...baseMembers,
+      ];
+    }
+
+    return baseMembers;
+  }, [user, avatar]);
+
+  const filteredMembers = useMemo(() => {
+    const query = memberSearch.trim().toLowerCase();
+
+    if (!query) return mockMembers;
+
+    return mockMembers.filter((member) => {
+      return (
+        member.displayName?.toLowerCase().includes(query) ||
+        member.username?.toLowerCase().includes(query) ||
+        member.role?.toLowerCase().includes(query)
+      );
+    });
+  }, [mockMembers, memberSearch]);
+
   const styles = createStyles({ isMobile, isTablet, sidebarOpen });
 
   return (
@@ -134,11 +207,40 @@ export default function Dashboard() {
         )}
 
         <div style={styles.nav}>
-          <div style={styles.navActive}>Overview</div>
-          <div style={styles.navItem}>Activity</div>
-          <div style={styles.navItem}>Members</div>
-          <div style={styles.navItem}>Sessions</div>
-          <div style={styles.navItem}>Settings</div>
+          <div
+            style={activeTab === "Overview" ? styles.navActive : styles.navItem}
+            onClick={() => setActiveTab("Overview")}
+          >
+            Overview
+          </div>
+
+          <div
+            style={activeTab === "Activity" ? styles.navActive : styles.navItem}
+            onClick={() => setActiveTab("Activity")}
+          >
+            Activity
+          </div>
+
+          <div
+            style={activeTab === "Members" ? styles.navActive : styles.navItem}
+            onClick={() => setActiveTab("Members")}
+          >
+            Members
+          </div>
+
+          <div
+            style={activeTab === "Sessions" ? styles.navActive : styles.navItem}
+            onClick={() => setActiveTab("Sessions")}
+          >
+            Sessions
+          </div>
+
+          <div
+            style={activeTab === "Settings" ? styles.navActive : styles.navItem}
+            onClick={() => setActiveTab("Settings")}
+          >
+            Settings
+          </div>
         </div>
       </aside>
 
@@ -165,7 +267,7 @@ export default function Dashboard() {
         {error && <div style={styles.error}>{error}</div>}
         {!user && !error && <div style={styles.loading}>Loading...</div>}
 
-        {user && (
+        {user && activeTab === "Overview" && (
           <>
             <div style={styles.grid}>
               <div style={styles.cardLarge}>
@@ -202,7 +304,7 @@ export default function Dashboard() {
 
               <div style={styles.card}>
                 <p style={styles.label}>Members</p>
-                <h2 style={styles.stat}>0</h2>
+                <h2 style={styles.stat}>{mockMembers.length}</h2>
                 <p style={styles.sub}>Workspace users</p>
               </div>
             </div>
@@ -216,6 +318,103 @@ export default function Dashboard() {
               </p>
             </div>
           </>
+        )}
+
+        {user && activeTab === "Members" && (
+          <div style={styles.membersWrap}>
+            <div style={styles.membersTopBar}>
+              <div>
+                <p style={styles.label}>Directory</p>
+                <h2 style={styles.membersTitle}>Members</h2>
+              </div>
+
+              <input
+                type="text"
+                placeholder="Search members..."
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+                style={styles.memberSearch}
+              />
+            </div>
+
+            <div style={styles.membersSummaryRow}>
+              <div style={styles.summaryCard}>
+                <p style={styles.label}>Total Members</p>
+                <h2 style={styles.stat}>{filteredMembers.length}</h2>
+                <p style={styles.sub}>Visible in directory</p>
+              </div>
+
+              <div style={styles.summaryCard}>
+                <p style={styles.label}>Connected User</p>
+                <h2 style={styles.summaryName}>{user.displayName}</h2>
+                <p style={styles.sub}>Currently signed in</p>
+              </div>
+            </div>
+
+            <div style={styles.membersGrid}>
+              {filteredMembers.map((member) => (
+                <div key={member.userId} style={styles.memberCard}>
+                  <div style={styles.memberGlow} />
+
+                  <div style={styles.memberAvatar}>
+                    {member.avatar ? (
+                      <img
+                        src={member.avatar}
+                        alt={`${member.displayName} avatar`}
+                        style={styles.memberAvatarImg}
+                      />
+                    ) : (
+                      member.displayName?.charAt(0)?.toUpperCase() || "M"
+                    )}
+                  </div>
+
+                  <div style={styles.memberText}>
+                    <h3 style={styles.memberName}>{member.displayName}</h3>
+                    <p style={styles.memberUsername}>@{member.username}</p>
+                    <div style={styles.memberMetaRow}>
+                      <span style={styles.memberBadge}>{member.role}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {filteredMembers.length === 0 && (
+              <div style={styles.emptyState}>
+                No members matched your search.
+              </div>
+            )}
+          </div>
+        )}
+
+        {user && activeTab === "Activity" && (
+          <div style={styles.placeholderCard}>
+            <p style={styles.label}>Activity</p>
+            <h3 style={styles.bottomTitle}>Activity panel coming next</h3>
+            <p style={styles.sub}>
+              This section will show tracked time, trends, and top performers.
+            </p>
+          </div>
+        )}
+
+        {user && activeTab === "Sessions" && (
+          <div style={styles.placeholderCard}>
+            <p style={styles.label}>Sessions</p>
+            <h3 style={styles.bottomTitle}>Sessions panel coming next</h3>
+            <p style={styles.sub}>
+              This section will manage trainings, events, and session records.
+            </p>
+          </div>
+        )}
+
+        {user && activeTab === "Settings" && (
+          <div style={styles.placeholderCard}>
+            <p style={styles.label}>Settings</p>
+            <h3 style={styles.bottomTitle}>Settings panel coming next</h3>
+            <p style={styles.sub}>
+              This section will hold workspace options, roles, and controls.
+            </p>
+          </div>
         )}
       </main>
     </div>
@@ -407,6 +606,7 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       fontSize: "16px",
       fontWeight: 500,
       cursor: "pointer",
+      transition: "background 0.18s ease, transform 0.18s ease",
     },
 
     navActive: {
@@ -419,6 +619,7 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       border: "1px solid rgba(255,255,255,0.08)",
       boxShadow:
         "0 10px 24px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.06)",
+      cursor: "pointer",
     },
 
     main: {
@@ -499,6 +700,16 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
 
     bottomCard: {
       marginTop: "20px",
+      background: "rgba(255,255,255,0.78)",
+      borderRadius: "22px",
+      padding: isMobile ? "20px" : "24px",
+      backdropFilter: "blur(12px)",
+      border: "1px solid rgba(255,255,255,0.65)",
+      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
+      minWidth: 0,
+    },
+
+    placeholderCard: {
       background: "rgba(255,255,255,0.78)",
       borderRadius: "22px",
       padding: isMobile ? "20px" : "24px",
@@ -623,6 +834,172 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       background: "rgba(255,255,255,0.85)",
       padding: "12px",
       borderRadius: "10px",
+    },
+
+    membersWrap: {
+      display: "grid",
+      gap: "18px",
+    },
+
+    membersTopBar: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: isMobile ? "stretch" : "center",
+      gap: "14px",
+      flexDirection: isMobile ? "column" : "row",
+    },
+
+    membersTitle: {
+      margin: "10px 0 0",
+      fontSize: isMobile ? "28px" : "34px",
+      lineHeight: 1.1,
+      fontWeight: 800,
+      color: "#203229",
+    },
+
+    memberSearch: {
+      width: isMobile ? "100%" : "320px",
+      padding: "14px 16px",
+      borderRadius: "16px",
+      border: "1px solid rgba(47,93,70,0.12)",
+      outline: "none",
+      fontSize: "15px",
+      background: "rgba(255,255,255,0.86)",
+      color: "#203229",
+      boxShadow: "0 10px 30px rgba(30,60,40,0.05)",
+    },
+
+    membersSummaryRow: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+      gap: "18px",
+    },
+
+    summaryCard: {
+      background: "rgba(255,255,255,0.78)",
+      borderRadius: "22px",
+      padding: isMobile ? "20px" : "24px",
+      backdropFilter: "blur(12px)",
+      border: "1px solid rgba(255,255,255,0.65)",
+      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
+      minWidth: 0,
+    },
+
+    summaryName: {
+      fontSize: isMobile ? "24px" : "28px",
+      margin: "14px 0 8px",
+      fontWeight: 700,
+      color: "#203229",
+    },
+
+    membersGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile
+        ? "1fr"
+        : isTablet
+        ? "1fr 1fr"
+        : "repeat(3, 1fr)",
+      gap: "18px",
+    },
+
+    memberCard: {
+      position: "relative",
+      display: "flex",
+      alignItems: "center",
+      gap: "16px",
+      background: "rgba(255,255,255,0.78)",
+      borderRadius: "22px",
+      padding: "18px",
+      backdropFilter: "blur(12px)",
+      border: "1px solid rgba(255,255,255,0.65)",
+      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
+      minWidth: 0,
+      overflow: "hidden",
+    },
+
+    memberGlow: {
+      position: "absolute",
+      inset: 0,
+      background:
+        "radial-gradient(circle at top left, rgba(131,221,163,0.14), transparent 42%)",
+      pointerEvents: "none",
+    },
+
+    memberAvatar: {
+      width: "62px",
+      height: "62px",
+      borderRadius: "50%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "#4f8d68",
+      border: "2px solid rgba(255,255,255,0.6)",
+      boxShadow:
+        "0 0 0 4px rgba(124,255,180,0.16), 0 0 28px rgba(102,201,138,0.28), inset 0 2px 10px rgba(255,255,255,0.18)",
+      flexShrink: 0,
+      overflow: "hidden",
+      position: "relative",
+      zIndex: 1,
+    },
+
+    memberAvatarImg: {
+      width: "100%",
+      height: "100%",
+      objectFit: "cover",
+      display: "block",
+      borderRadius: "50%",
+    },
+
+    memberText: {
+      minWidth: 0,
+      position: "relative",
+      zIndex: 1,
+    },
+
+    memberName: {
+      margin: 0,
+      fontSize: "22px",
+      lineHeight: 1.1,
+      fontWeight: 800,
+      color: "#203229",
+      wordBreak: "break-word",
+    },
+
+    memberUsername: {
+      margin: "6px 0 0",
+      fontSize: "15px",
+      color: "#5b7467",
+      wordBreak: "break-word",
+    },
+
+    memberMetaRow: {
+      marginTop: "10px",
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "8px",
+    },
+
+    memberBadge: {
+      display: "inline-flex",
+      alignItems: "center",
+      padding: "7px 10px",
+      borderRadius: "999px",
+      fontSize: "12px",
+      fontWeight: 700,
+      color: "#2f5d46",
+      background: "rgba(191, 232, 208, 0.55)",
+      border: "1px solid rgba(111,160,128,0.18)",
+    },
+
+    emptyState: {
+      background: "rgba(255,255,255,0.78)",
+      borderRadius: "22px",
+      padding: "24px",
+      backdropFilter: "blur(12px)",
+      border: "1px solid rgba(255,255,255,0.65)",
+      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
+      color: "#5b7467",
+      fontSize: "16px",
     },
   };
 }
