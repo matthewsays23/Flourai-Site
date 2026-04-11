@@ -145,9 +145,6 @@ export default function Dashboard() {
   }, [user]);
 
   useEffect(() => {
-    if (activeTab !== "Members") return;
-    if (!user) return;
-   useEffect(() => {
   if (activeTab !== "Members") return;
   if (!user) return;
   if (membersLoaded) return;
@@ -155,9 +152,6 @@ export default function Dashboard() {
   loadMembers();
 }, [activeTab, user, membersLoaded]);
     if (membersLoaded) return;
-
-    loadMembers();
-  }, [activeTab, user, workspaceAccess, membersLoaded]);
 
   const loadMembers = async () => {
     try {
