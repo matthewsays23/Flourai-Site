@@ -464,11 +464,6 @@ export default function Dashboard() {
                           {member.roleLabel || member.roleName || "Member"}
                         </span>
 
-                        {typeof member.rank === "number" && (
-                          <span style={styles.memberBadgeSoft}>
-                            Rank {member.rank}
-                          </span>
-                        )}
 
                         {member.isConnectedUser && (
                           <span style={styles.memberBadgeSoft}>
