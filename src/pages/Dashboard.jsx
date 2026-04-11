@@ -366,15 +366,13 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div style={styles.card}>
-                <p style={styles.label}>Directory Access</p>
-                <h2 style={styles.stat}>{canViewMembers ? "Yes" : "No"}</h2>
-                <p style={styles.sub}>
-                  {canViewMembers
-                    ? "You can open the Members directory."
-                    : "Your group role is not bound to the Members directory."}
-                </p>
-              </div>
+             <div style={styles.card}>
+  <p style={styles.label}>Activity</p>
+  <h2 style={styles.stat}>—</h2>
+  <p style={styles.sub}>
+    Tracked activity, time logs, and workspace performance will appear here.
+  </p>
+</div>
 
               <div style={styles.card}>
                 <p style={styles.label}>Directory Count</p>
