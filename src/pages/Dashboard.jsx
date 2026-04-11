@@ -23,15 +23,28 @@ function useResponsive() {
   };
 }
 
+const DEFAULT_TABS = ["Overview", "Activity", "Members", "Sessions", "Settings"];
+
 export default function Dashboard() {
   const { isMobile, isTablet } = useResponsive();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("Overview");
 
   const [user, setUser] = useState(null);
   const [avatar, setAvatar] = useState("");
   const [error, setError] = useState("");
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  const [workspaceAccess, setWorkspaceAccess] = useState(null);
+  const [accessLoading, setAccessLoading] = useState(false);
+  const [accessError, setAccessError] = useState("");
+
+  const [members, setMembers] = useState([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [membersError, setMembersError] = useState("");
+  const [membersLoaded, setMembersLoaded] = useState(false);
+  const [refreshingMembers, setRefreshingMembers] = useState(false);
 
   const [memberSearch, setMemberSearch] = useState("");
 
@@ -42,41 +55,6 @@ export default function Dashboard() {
     document.documentElement.style.margin = "0";
     document.documentElement.style.padding = "0";
     document.documentElement.style.background = "#edf6ef";
-
-    const loadUser = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/auth/me`, {
-          credentials: "include",
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.error || "Failed to load user");
-        }
-
-        setUser(data.user);
-
-        if (data.user?.robloxId) {
-          const avatarRes = await fetch(
-            `${API_BASE}/api/auth/avatar/${data.user.robloxId}`,
-            {
-              credentials: "include",
-            }
-          );
-
-          const avatarData = await avatarRes.json();
-
-          if (avatarData.ok && avatarData.imageUrl) {
-            setAvatar(avatarData.imageUrl);
-          }
-        }
-      } catch (err) {
-        setError(err.message || "Failed to load dashboard");
-      }
-    };
-
-    loadUser();
 
     return () => {
       document.body.style.margin = "";
@@ -92,74 +70,175 @@ export default function Dashboard() {
     if (!isMobile) setSidebarOpen(false);
   }, [isMobile]);
 
-  const mockMembers = useMemo(() => {
-    const baseMembers = [
-      {
-        userId: "1",
-        displayName: "Avery",
-        username: "flouraiteam",
-        role: "Leadership",
-        avatar: "",
-      },
-      {
-        userId: "2",
-        displayName: "Luna",
-        username: "gardenops",
-        role: "Management",
-        avatar: "",
-      },
-      {
-        userId: "3",
-        displayName: "Rowan",
-        username: "botanicalstaff",
-        role: "Staff",
-        avatar: "",
-      },
-      {
-        userId: "4",
-        displayName: "Iris",
-        username: "teacoordinator",
-        role: "Sessions",
-        avatar: "",
-      },
-      {
-        userId: "5",
-        displayName: "Sage",
-        username: "communitycare",
-        role: "Moderation",
-        avatar: "",
-      },
-    ];
+  useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+        setInitialLoading(true);
+        setError("");
 
-    if (user) {
-      return [
-        {
-          userId: user.robloxId,
-          displayName: user.displayName,
-          username: user.username,
-          role: "Connected Account",
-          avatar,
-        },
-        ...baseMembers,
-      ];
+        const meRes = await fetch(`${API_BASE}/api/auth/me`, {
+          credentials: "include",
+        });
+
+        const meData = await meRes.json();
+
+        if (!meRes.ok) {
+          throw new Error(meData.error || "Failed to load user");
+        }
+
+        setUser(meData.user);
+
+        if (meData.user?.robloxId) {
+          try {
+            const avatarRes = await fetch(
+              `${API_BASE}/api/auth/avatar/${meData.user.robloxId}`,
+              {
+                credentials: "include",
+              }
+            );
+            const avatarData = await avatarRes.json();
+
+            if (avatarData.ok && avatarData.imageUrl) {
+              setAvatar(avatarData.imageUrl);
+            }
+          } catch {
+            // keep dashboard alive even if avatar fails
+          }
+        }
+      } catch (err) {
+        setError(err.message || "Failed to load dashboard");
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+
+    loadDashboard();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const loadWorkspaceAccess = async () => {
+      try {
+        setAccessLoading(true);
+        setAccessError("");
+
+        const res = await fetch(`${API_BASE}/api/workspace/access`, {
+          credentials: "include",
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to load workspace access");
+        }
+
+        setWorkspaceAccess(data);
+      } catch (err) {
+        setAccessError(err.message || "Failed to load workspace access");
+      } finally {
+        setAccessLoading(false);
+      }
+    };
+
+    loadWorkspaceAccess();
+  }, [user]);
+
+  useEffect(() => {
+    if (activeTab !== "Members") return;
+    if (!user) return;
+    if (!workspaceAccess?.permissions?.canViewMembers) return;
+    if (membersLoaded) return;
+
+    loadMembers();
+  }, [activeTab, user, workspaceAccess, membersLoaded]);
+
+  const loadMembers = async () => {
+    try {
+      setMembersLoading(true);
+      setMembersError("");
+
+      const res = await fetch(`${API_BASE}/api/workspace/members`, {
+        credentials: "include",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load members");
+      }
+
+      setMembers(Array.isArray(data.members) ? data.members : []);
+      setMembersLoaded(true);
+    } catch (err) {
+      setMembersError(err.message || "Failed to load members");
+    } finally {
+      setMembersLoading(false);
     }
+  };
 
-    return baseMembers;
-  }, [user, avatar]);
+  const refreshMembers = async () => {
+    try {
+      setRefreshingMembers(true);
+      setMembersError("");
+
+      const refreshRes = await fetch(
+        `${API_BASE}/api/workspace/members/refresh`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const refreshData = await refreshRes.json();
+
+      if (!refreshRes.ok) {
+        throw new Error(refreshData.error || "Failed to refresh members");
+      }
+
+      await loadMembers();
+    } catch (err) {
+      setMembersError(err.message || "Failed to refresh members");
+    } finally {
+      setRefreshingMembers(false);
+    }
+  };
 
   const filteredMembers = useMemo(() => {
     const query = memberSearch.trim().toLowerCase();
 
-    if (!query) return mockMembers;
+    if (!query) return members;
 
-    return mockMembers.filter((member) => {
+    return members.filter((member) => {
       return (
         member.displayName?.toLowerCase().includes(query) ||
         member.username?.toLowerCase().includes(query) ||
-        member.role?.toLowerCase().includes(query)
+        member.roleLabel?.toLowerCase().includes(query) ||
+        member.roleName?.toLowerCase().includes(query)
       );
     });
-  }, [mockMembers, memberSearch]);
+  }, [members, memberSearch]);
+
+  const permissions = workspaceAccess?.permissions || {};
+  const canViewMembers = !!permissions.canViewMembers;
+  const canRefreshMembers = !!permissions.canRefreshMembers;
+  const availableTabs = DEFAULT_TABS.filter((tab) => {
+    if (tab === "Members" && workspaceAccess && !canViewMembers) return false;
+    return true;
+  });
+
+  useEffect(() => {
+    if (!availableTabs.includes(activeTab)) {
+      setActiveTab("Overview");
+    }
+  }, [activeTab, availableTabs]);
+
+  const workspaceName = workspaceAccess?.workspace?.name || "Flourai Panel";
+  const workspaceRoleLabel = workspaceAccess?.viewer?.roleLabel || "Connected";
+  const lastMemberSync = workspaceAccess?.workspace?.lastMemberSync || "";
 
   const styles = createStyles({ isMobile, isTablet, sidebarOpen });
 
@@ -202,45 +281,24 @@ export default function Dashboard() {
             <div style={styles.profileTextWrap}>
               <div style={styles.profileName}>{user.displayName}</div>
               <div style={styles.profileUser}>@{user.username}</div>
+              <div style={styles.profileRole}>{workspaceRoleLabel}</div>
             </div>
           </div>
         )}
 
         <div style={styles.nav}>
-          <div
-            style={activeTab === "Overview" ? styles.navActive : styles.navItem}
-            onClick={() => setActiveTab("Overview")}
-          >
-            Overview
-          </div>
-
-          <div
-            style={activeTab === "Activity" ? styles.navActive : styles.navItem}
-            onClick={() => setActiveTab("Activity")}
-          >
-            Activity
-          </div>
-
-          <div
-            style={activeTab === "Members" ? styles.navActive : styles.navItem}
-            onClick={() => setActiveTab("Members")}
-          >
-            Members
-          </div>
-
-          <div
-            style={activeTab === "Sessions" ? styles.navActive : styles.navItem}
-            onClick={() => setActiveTab("Sessions")}
-          >
-            Sessions
-          </div>
-
-          <div
-            style={activeTab === "Settings" ? styles.navActive : styles.navItem}
-            onClick={() => setActiveTab("Settings")}
-          >
-            Settings
-          </div>
+          {availableTabs.map((tab) => {
+            const active = activeTab === tab;
+            return (
+              <div
+                key={tab}
+                style={active ? styles.navActive : styles.navItem}
+                onClick={() => setActiveTab(tab)}
+              >
+                {tab}
+              </div>
+            );
+          })}
         </div>
       </aside>
 
@@ -259,13 +317,24 @@ export default function Dashboard() {
 
             <div>
               <p style={styles.kicker}>Workspace</p>
-              <h1 style={styles.title}>Flourai Panel</h1>
+              <h1 style={styles.title}>{workspaceName}</h1>
             </div>
           </div>
         </div>
 
         {error && <div style={styles.error}>{error}</div>}
-        {!user && !error && <div style={styles.loading}>Loading...</div>}
+
+        {initialLoading && !error && (
+          <div style={styles.loading}>Loading dashboard...</div>
+        )}
+
+        {!initialLoading && !error && user && accessLoading && (
+          <div style={styles.loading}>Loading workspace access...</div>
+        )}
+
+        {!initialLoading && !error && user && accessError && (
+          <div style={styles.error}>{accessError}</div>
+        )}
 
         {user && activeTab === "Overview" && (
           <>
@@ -292,29 +361,38 @@ export default function Dashboard() {
                     <h2 style={styles.accountName}>{user.displayName}</h2>
                     <p style={styles.accountUsername}>@{user.username}</p>
                     <p style={styles.accountId}>ID: {user.robloxId}</p>
+                    <p style={styles.accountRole}>Workspace Role: {workspaceRoleLabel}</p>
                   </div>
                 </div>
               </div>
 
               <div style={styles.card}>
-                <p style={styles.label}>Weekly Activity</p>
-                <h2 style={styles.stat}>0h</h2>
-                <p style={styles.sub}>Tracked time</p>
+                <p style={styles.label}>Directory Access</p>
+                <h2 style={styles.stat}>{canViewMembers ? "Yes" : "No"}</h2>
+                <p style={styles.sub}>
+                  {canViewMembers
+                    ? "You can open the Members directory."
+                    : "Your group role is not bound to the Members directory."}
+                </p>
               </div>
 
               <div style={styles.card}>
-                <p style={styles.label}>Members</p>
-                <h2 style={styles.stat}>{mockMembers.length}</h2>
-                <p style={styles.sub}>Workspace users</p>
+                <p style={styles.label}>Directory Count</p>
+                <h2 style={styles.stat}>{membersLoaded ? members.length : "—"}</h2>
+                <p style={styles.sub}>
+                  {lastMemberSync
+                    ? `Last synced: ${new Date(lastMemberSync).toLocaleString()}`
+                    : "Members will appear after the first sync."}
+                </p>
               </div>
             </div>
 
             <div style={styles.bottomCard}>
               <p style={styles.label}>System Status</p>
-              <h3 style={styles.bottomTitle}>Flourai workspace is active 🌿</h3>
+              <h3 style={styles.bottomTitle}>Workspace is connected 🌿</h3>
               <p style={styles.sub}>
-                Your environment is connected and ready for activity tracking,
-                sessions, and management tools.
+                This panel is now structured for real group permissions, synced
+                members, and role-bound workspace access.
               </p>
             </div>
           </>
@@ -322,67 +400,110 @@ export default function Dashboard() {
 
         {user && activeTab === "Members" && (
           <div style={styles.membersWrap}>
-            <div style={styles.membersTopBar}>
-              <div>
-                <p style={styles.label}>Directory</p>
-                <h2 style={styles.membersTitle}>Members</h2>
+            {!canViewMembers ? (
+              <div style={styles.lockedCard}>
+                <p style={styles.label}>Restricted</p>
+                <h3 style={styles.bottomTitle}>You do not have access to Members</h3>
+                <p style={styles.sub}>
+                  Your current Roblox group role is not included in the bound
+                  roles for the directory.
+                </p>
               </div>
+            ) : (
+              <>
+                <div style={styles.membersTopBar}>
+                  <div>
+                    <p style={styles.label}>Directory</p>
+                    <h2 style={styles.membersTitle}>Members</h2>
+                  </div>
 
-              <input
-                type="text"
-                placeholder="Search members..."
-                value={memberSearch}
-                onChange={(e) => setMemberSearch(e.target.value)}
-                style={styles.memberSearch}
-              />
-            </div>
+                  <div style={styles.membersActions}>
+                    <input
+                      type="text"
+                      placeholder="Search members..."
+                      value={memberSearch}
+                      onChange={(e) => setMemberSearch(e.target.value)}
+                      style={styles.memberSearch}
+                    />
 
-            <div style={styles.membersSummaryRow}>
-              <div style={styles.summaryCard}>
-                <p style={styles.label}>Total Members</p>
-                <h2 style={styles.stat}>{filteredMembers.length}</h2>
-                <p style={styles.sub}>Visible in directory</p>
-              </div>
-
-              <div style={styles.summaryCard}>
-                <p style={styles.label}>Connected User</p>
-                <h2 style={styles.summaryName}>{user.displayName}</h2>
-                <p style={styles.sub}>Currently signed in</p>
-              </div>
-            </div>
-
-            <div style={styles.membersGrid}>
-              {filteredMembers.map((member) => (
-                <div key={member.userId} style={styles.memberCard}>
-                  <div style={styles.memberGlow} />
-
-                  <div style={styles.memberAvatar}>
-                    {member.avatar ? (
-                      <img
-                        src={member.avatar}
-                        alt={`${member.displayName} avatar`}
-                        style={styles.memberAvatarImg}
-                      />
-                    ) : (
-                      member.displayName?.charAt(0)?.toUpperCase() || "M"
+                    {canRefreshMembers && (
+                      <button
+                        style={styles.refreshButton}
+                        onClick={refreshMembers}
+                        disabled={refreshingMembers}
+                      >
+                        {refreshingMembers ? "Refreshing..." : "Refresh"}
+                      </button>
                     )}
                   </div>
+                </div>
 
-                  <div style={styles.memberText}>
-                    <h3 style={styles.memberName}>{member.displayName}</h3>
-                    <p style={styles.memberUsername}>@{member.username}</p>
-                    <div style={styles.memberMetaRow}>
-                      <span style={styles.memberBadge}>{member.role}</span>
-                    </div>
+                <div style={styles.membersSummaryRow}>
+                  <div style={styles.summaryCard}>
+                    <p style={styles.label}>Total Members</p>
+                    <h2 style={styles.stat}>
+                      {membersLoading ? "..." : filteredMembers.length}
+                    </h2>
+                    <p style={styles.sub}>Visible in directory</p>
+                  </div>
+
+                  <div style={styles.summaryCard}>
+                    <p style={styles.label}>Connected User</p>
+                    <h2 style={styles.summaryName}>{user.displayName}</h2>
+                    <p style={styles.sub}>
+                      {workspaceRoleLabel} • currently signed in
+                    </p>
                   </div>
                 </div>
-              ))}
-            </div>
 
-            {filteredMembers.length === 0 && (
-              <div style={styles.emptyState}>
-                No members matched your search.
-              </div>
+                {membersError && <div style={styles.error}>{membersError}</div>}
+
+                {membersLoading ? (
+                  <div style={styles.loading}>Loading members...</div>
+                ) : filteredMembers.length > 0 ? (
+                  <div style={styles.membersGrid}>
+                    {filteredMembers.map((member) => (
+                      <div key={member.userId} style={styles.memberCard}>
+                        <div style={styles.memberGlow} />
+
+                        <div style={styles.memberAvatar}>
+                          {member.avatar ? (
+                            <img
+                              src={member.avatar}
+                              alt={`${member.displayName} avatar`}
+                              style={styles.memberAvatarImg}
+                            />
+                          ) : (
+                            member.displayName?.charAt(0)?.toUpperCase() || "M"
+                          )}
+                        </div>
+
+                        <div style={styles.memberText}>
+                          <h3 style={styles.memberName}>{member.displayName}</h3>
+                          <p style={styles.memberUsername}>@{member.username}</p>
+
+                          <div style={styles.memberMetaRow}>
+                            <span style={styles.memberBadge}>
+                              {member.roleLabel || member.roleName || "Member"}
+                            </span>
+
+                            {member.isConnectedUser && (
+                              <span style={styles.memberBadgeSoft}>
+                                Connected Account
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={styles.emptyState}>
+                    No directory members were found for the currently bound
+                    roles.
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -412,7 +533,8 @@ export default function Dashboard() {
             <p style={styles.label}>Settings</p>
             <h3 style={styles.bottomTitle}>Settings panel coming next</h3>
             <p style={styles.sub}>
-              This section will hold workspace options, roles, and controls.
+              This section will hold workspace options, role binds, and access
+              controls.
             </p>
           </div>
         )}
@@ -558,6 +680,8 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
         "0 0 0 3px rgba(124,255,180,0.15), 0 0 25px rgba(124,255,180,0.35), inset 0 1px 6px rgba(255,255,255,0.18)",
       flexShrink: 0,
       overflow: "hidden",
+      position: "relative",
+      zIndex: 1,
     },
 
     avatarImg: {
@@ -570,6 +694,8 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
 
     profileTextWrap: {
       minWidth: 0,
+      position: "relative",
+      zIndex: 1,
     },
 
     profileName: {
@@ -589,6 +715,14 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       overflow: "hidden",
       textOverflow: "ellipsis",
       whiteSpace: "nowrap",
+    },
+
+    profileRole: {
+      fontSize: "12px",
+      color: "rgba(190,245,211,0.95)",
+      marginTop: "6px",
+      fontWeight: 700,
+      letterSpacing: "0.04em",
     },
 
     nav: {
@@ -719,6 +853,16 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       minWidth: 0,
     },
 
+    lockedCard: {
+      background: "rgba(255,255,255,0.78)",
+      borderRadius: "22px",
+      padding: isMobile ? "20px" : "24px",
+      backdropFilter: "blur(12px)",
+      border: "1px solid rgba(255,255,255,0.65)",
+      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
+      minWidth: 0,
+    },
+
     label: {
       fontSize: "12px",
       textTransform: "uppercase",
@@ -803,6 +947,14 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       wordBreak: "break-word",
     },
 
+    accountRole: {
+      margin: "10px 0 0",
+      fontSize: isMobile ? "15px" : "16px",
+      color: "#2f5d46",
+      fontWeight: 700,
+      wordBreak: "break-word",
+    },
+
     stat: {
       fontSize: isMobile ? "30px" : "34px",
       margin: "14px 0 8px",
@@ -826,14 +978,17 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
     error: {
       background: "#ffe5e5",
       padding: "12px",
-      borderRadius: "10px",
+      borderRadius: "12px",
       color: "#7a2020",
+      border: "1px solid rgba(122,32,32,0.08)",
     },
 
     loading: {
       background: "rgba(255,255,255,0.85)",
-      padding: "12px",
-      borderRadius: "10px",
+      padding: "12px 14px",
+      borderRadius: "12px",
+      color: "#203229",
+      border: "1px solid rgba(47,93,70,0.08)",
     },
 
     membersWrap: {
@@ -847,6 +1002,14 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       alignItems: isMobile ? "stretch" : "center",
       gap: "14px",
       flexDirection: isMobile ? "column" : "row",
+    },
+
+    membersActions: {
+      display: "flex",
+      gap: "12px",
+      alignItems: "center",
+      flexDirection: isMobile ? "column" : "row",
+      width: isMobile ? "100%" : "auto",
     },
 
     membersTitle: {
@@ -867,6 +1030,19 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       background: "rgba(255,255,255,0.86)",
       color: "#203229",
       boxShadow: "0 10px 30px rgba(30,60,40,0.05)",
+    },
+
+    refreshButton: {
+      padding: "14px 18px",
+      borderRadius: "16px",
+      border: "1px solid rgba(47,93,70,0.12)",
+      background: "#2f5d46",
+      color: "#fff",
+      fontSize: "14px",
+      fontWeight: 700,
+      cursor: "pointer",
+      boxShadow: "0 10px 25px rgba(47,93,70,0.18)",
+      minWidth: "110px",
     },
 
     membersSummaryRow: {
@@ -989,6 +1165,18 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       color: "#2f5d46",
       background: "rgba(191, 232, 208, 0.55)",
       border: "1px solid rgba(111,160,128,0.18)",
+    },
+
+    memberBadgeSoft: {
+      display: "inline-flex",
+      alignItems: "center",
+      padding: "7px 10px",
+      borderRadius: "999px",
+      fontSize: "12px",
+      fontWeight: 700,
+      color: "#5b7467",
+      background: "rgba(255,255,255,0.9)",
+      border: "1px solid rgba(47,93,70,0.08)",
     },
 
     emptyState: {
