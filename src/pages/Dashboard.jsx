@@ -168,13 +168,12 @@ export default function Dashboard() {
     }
   };
 
-  useEffect(() => {
-    if (activeTab !== "Members") return;
-    if (!user) return;
-    if (membersLoaded) return;
+ useEffect(() => {
+  if (!user) return;
+  if (membersLoaded) return;
 
-    loadMembers();
-  }, [activeTab, user, membersLoaded]);
+  loadMembers();
+}, [user, membersLoaded]);
 
   const refreshMembers = async () => {
     try {
