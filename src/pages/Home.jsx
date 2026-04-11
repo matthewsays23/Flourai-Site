@@ -43,7 +43,7 @@ export default function Home() {
 
       <header style={styles.nav}>
         <div style={styles.brandWrap}>
-<img src={logo} alt="Flourai" style={{ height: 40 }} />
+<img src={logo} style={{ height: 120, border: "5px solid red" }} />
 </div>
 
         {!isMobile && (
