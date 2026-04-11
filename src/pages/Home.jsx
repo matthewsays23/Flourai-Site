@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import flouraiLogo from "../assets/Text_Logo.png";
-
 import logo from "../assets/home.png";
 
 const API_BASE =
@@ -33,6 +32,23 @@ export default function Home() {
     window.location.href = `${API_BASE}/api/auth/roblox/start`;
   };
 
+  const handleWorkspace = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/me`, {
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        window.location.href = "/dashboard";
+        return;
+      }
+
+      window.location.href = `${API_BASE}/api/auth/roblox/start`;
+    } catch (err) {
+      window.location.href = `${API_BASE}/api/auth/roblox/start`;
+    }
+  };
+
   const styles = createStyles({ isMobile, isTablet, menuOpen });
 
   return (
@@ -42,20 +58,20 @@ export default function Home() {
       <div style={styles.glowThree}></div>
 
       <header style={styles.nav}>
-       <div style={styles.brandWrap}>
-  <img
-    src={logo}
-    alt="Flourai"
-    style={{
-      width: 32,
-      height: 32,
-      objectFit: "contain",
-      borderRadius: "8px", // optional (makes it softer)
-    }}
-  />
+        <div style={styles.brandWrap}>
+          <img
+            src={logo}
+            alt="Flourai"
+            style={{
+              width: 32,
+              height: 32,
+              objectFit: "contain",
+              borderRadius: "8px",
+            }}
+          />
 
-  <span style={styles.brandText}>Flourai</span>
-</div>
+          <span style={styles.brandText}>Flourai</span>
+        </div>
 
         {!isMobile && (
           <div style={styles.navLinks}>
@@ -75,7 +91,7 @@ export default function Home() {
               ☰
             </button>
           ) : (
-            <button style={styles.navButton} onClick={handleLogin}>
+            <button style={styles.navButton} onClick={handleWorkspace}>
               Enter Flourai
             </button>
           )}
@@ -87,7 +103,7 @@ export default function Home() {
           <span style={styles.mobileMenuItem}>Home</span>
           <span style={styles.mobileMenuItem}>Workspace</span>
           <span style={styles.mobileMenuItem}>Activity</span>
-          <button style={styles.mobileMenuButton} onClick={handleLogin}>
+          <button style={styles.mobileMenuButton} onClick={handleWorkspace}>
             Enter Flourai
           </button>
         </div>
@@ -111,7 +127,12 @@ export default function Home() {
                 Continue with Roblox
               </button>
 
-              <button style={styles.secondaryButton}>View Workspace</button>
+              <button
+                style={styles.secondaryButton}
+                onClick={handleWorkspace}
+              >
+                View Workspace
+              </button>
             </div>
 
             <div style={styles.infoRow}>
@@ -360,14 +381,22 @@ function createStyles({ isMobile, isTablet, menuOpen }) {
     main: {
       position: "relative",
       zIndex: 2,
-      padding: isMobile ? "10px 16px 48px" : isTablet ? "14px 24px 56px" : "20px 40px 70px",
+      padding: isMobile
+        ? "10px 16px 48px"
+        : isTablet
+        ? "14px 24px 56px"
+        : "20px 40px 70px",
     },
     hero: {
       maxWidth: "1380px",
       margin: "0 auto",
       minHeight: isMobile ? "auto" : "78vh",
       display: "grid",
-      gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr" : "1.05fr 0.95fr",
+      gridTemplateColumns: isMobile
+        ? "1fr"
+        : isTablet
+        ? "1fr"
+        : "1.05fr 0.95fr",
       gap: isMobile ? "20px" : isTablet ? "24px" : "28px",
       alignItems: "center",
     },
@@ -431,7 +460,11 @@ function createStyles({ isMobile, isTablet, menuOpen }) {
     infoRow: {
       marginTop: "26px",
       display: "grid",
-      gridTemplateColumns: isMobile ? "1fr" : compact ? "repeat(2, minmax(0, 1fr))" : "repeat(3, minmax(160px, 1fr))",
+      gridTemplateColumns: isMobile
+        ? "1fr"
+        : compact
+        ? "repeat(2, minmax(0, 1fr))"
+        : "repeat(3, minmax(160px, 1fr))",
       gap: "14px",
     },
     infoCard: {
@@ -512,7 +545,11 @@ function createStyles({ isMobile, isTablet, menuOpen }) {
     },
     workspaceGrid: {
       display: "grid",
-      gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr 1fr" : "1.15fr 1fr 1fr",
+      gridTemplateColumns: isMobile
+        ? "1fr"
+        : isTablet
+        ? "1fr 1fr"
+        : "1.15fr 1fr 1fr",
       gap: "14px",
     },
     workspaceLarge: {
@@ -577,7 +614,11 @@ function createStyles({ isMobile, isTablet, menuOpen }) {
     },
     featureGrid: {
       display: "grid",
-      gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr 1fr" : "repeat(3, 1fr)",
+      gridTemplateColumns: isMobile
+        ? "1fr"
+        : isTablet
+        ? "1fr 1fr"
+        : "repeat(3, 1fr)",
       gap: "18px",
       marginTop: "18px",
     },
