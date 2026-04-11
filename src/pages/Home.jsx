@@ -42,8 +42,19 @@ export default function Home() {
       <div style={styles.glowThree}></div>
 
       <header style={styles.nav}>
-        <div style={styles.brandWrap}>
-<img src={logo} style={{ height: 120, border: "5px solid red" }} />
+       <div style={styles.brandWrap}>
+  <img
+    src={logo}
+    alt="Flourai"
+    style={{
+      width: 32,
+      height: 32,
+      objectFit: "contain",
+      borderRadius: "8px", // optional (makes it softer)
+    }}
+  />
+
+  <span style={styles.brandText}>Flourai</span>
 </div>
 
         {!isMobile && (
