@@ -115,34 +115,34 @@ export default function Dashboard() {
     loadDashboard();
   }, []);
 
-  useEffect(() => {
-    if (!user) return;
+  const loadWorkspaceAccess = async () => {
+  try {
+    setAccessLoading(true);
+    setAccessError("");
 
-    const loadWorkspaceAccess = async () => {
-      try {
-        setAccessLoading(true);
-        setAccessError("");
+    const res = await fetch(`${API_BASE}/api/workspace/access`, {
+      credentials: "include",
+    });
 
-        const res = await fetch(`${API_BASE}/api/workspace/access`, {
-          credentials: "include",
-        });
+    const data = await res.json();
 
-        const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to load workspace access");
+    }
 
-        if (!res.ok) {
-          throw new Error(data.error || "Failed to load workspace access");
-        }
+    setWorkspaceAccess(data);
+  } catch (err) {
+    setAccessError(err.message || "Failed to load workspace access");
+  } finally {
+    setAccessLoading(false);
+  }
+};
 
-        setWorkspaceAccess(data);
-      } catch (err) {
-        setAccessError(err.message || "Failed to load workspace access");
-      } finally {
-        setAccessLoading(false);
-      }
-    };
+useEffect(() => {
+  if (!user) return;
+  loadWorkspaceAccess();
+}, [user]);
 
-    loadWorkspaceAccess();
-  }, [user]);
 
   const loadMembers = async () => {
     try {
@@ -176,32 +176,36 @@ export default function Dashboard() {
 }, [user, membersLoaded]);
 
   const refreshMembers = async () => {
-    try {
-      setRefreshingMembers(true);
-      setMembersError("");
+  try {
+    setRefreshingMembers(true);
+    setMembersError("");
 
-      const refreshRes = await fetch(`${API_BASE}/api/workspace/members/refresh`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+    const refreshRes = await fetch(`${API_BASE}/api/workspace/members/refresh`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
 
-      const refreshData = await refreshRes.json();
+    const refreshData = await refreshRes.json();
 
-      if (!refreshRes.ok) {
-        throw new Error(refreshData.error || "Failed to refresh members");
-      }
-
-      setMembersLoaded(false);
-      await loadMembers();
-    } catch (err) {
-      setMembersError(err.message || "Failed to refresh members");
-    } finally {
-      setRefreshingMembers(false);
+    if (!refreshRes.ok) {
+      throw new Error(refreshData.error || "Failed to refresh members");
     }
-  };
+
+    setMembersLoaded(false);
+
+    await Promise.all([
+      loadMembers(),
+      loadWorkspaceAccess(),
+    ]);
+  } catch (err) {
+    setMembersError(err.message || "Failed to refresh members");
+  } finally {
+    setRefreshingMembers(false);
+  }
+};
 
   const filteredMembers = useMemo(() => {
     const query = memberSearch.trim().toLowerCase();
