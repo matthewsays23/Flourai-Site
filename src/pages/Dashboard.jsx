@@ -147,7 +147,13 @@ export default function Dashboard() {
   useEffect(() => {
     if (activeTab !== "Members") return;
     if (!user) return;
-    if (!workspaceAccess?.permissions?.canViewMembers) return;
+   useEffect(() => {
+  if (activeTab !== "Members") return;
+  if (!user) return;
+  if (membersLoaded) return;
+
+  loadMembers();
+}, [activeTab, user, membersLoaded]);
     if (membersLoaded) return;
 
     loadMembers();
@@ -225,10 +231,7 @@ export default function Dashboard() {
   const permissions = workspaceAccess?.permissions || {};
   const canViewMembers = !!permissions.canViewMembers;
   const canRefreshMembers = !!permissions.canRefreshMembers;
-  const availableTabs = DEFAULT_TABS.filter((tab) => {
-    if (tab === "Members" && workspaceAccess && !canViewMembers) return false;
-    return true;
-  });
+  const availableTabs = DEFAULT_TABS;
 
   useEffect(() => {
     if (!availableTabs.includes(activeTab)) {
@@ -396,115 +399,101 @@ export default function Dashboard() {
           </>
         )}
 
-        {user && activeTab === "Members" && (
-          <div style={styles.membersWrap}>
-            {!canViewMembers ? (
-              <div style={styles.lockedCard}>
-                <p style={styles.label}>Restricted</p>
-                <h3 style={styles.bottomTitle}>You do not have access to Members</h3>
-                <p style={styles.sub}>
-                  Your current Roblox group role is not included in the bound
-                  roles for the directory.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div style={styles.membersTopBar}>
-                  <div>
-                    <p style={styles.label}>Directory</p>
-                    <h2 style={styles.membersTitle}>Members</h2>
-                  </div>
+              {user && activeTab === "Members" && (
+  <div style={styles.membersWrap}>
+    <div style={styles.membersTopBar}>
+      <div>
+        <p style={styles.label}>Directory</p>
+        <h2 style={styles.membersTitle}>Members</h2>
+      </div>
 
-                  <div style={styles.membersActions}>
-                    <input
-                      type="text"
-                      placeholder="Search members..."
-                      value={memberSearch}
-                      onChange={(e) => setMemberSearch(e.target.value)}
-                      style={styles.memberSearch}
-                    />
+      <div style={styles.membersActions}>
+        <input
+          type="text"
+          placeholder="Search members..."
+          value={memberSearch}
+          onChange={(e) => setMemberSearch(e.target.value)}
+          style={styles.memberSearch}
+        />
 
-                    {canRefreshMembers && (
-                      <button
-                        style={styles.refreshButton}
-                        onClick={refreshMembers}
-                        disabled={refreshingMembers}
-                      >
-                        {refreshingMembers ? "Refreshing..." : "Refresh"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div style={styles.membersSummaryRow}>
-                  <div style={styles.summaryCard}>
-                    <p style={styles.label}>Total Members</p>
-                    <h2 style={styles.stat}>
-                      {membersLoading ? "..." : filteredMembers.length}
-                    </h2>
-                    <p style={styles.sub}>Visible in directory</p>
-                  </div>
-
-                  <div style={styles.summaryCard}>
-                    <p style={styles.label}>Connected User</p>
-                    <h2 style={styles.summaryName}>{user.displayName}</h2>
-                    <p style={styles.sub}>
-                      {workspaceRoleLabel} • currently signed in
-                    </p>
-                  </div>
-                </div>
-
-                {membersError && <div style={styles.error}>{membersError}</div>}
-
-                {membersLoading ? (
-                  <div style={styles.loading}>Loading members...</div>
-                ) : filteredMembers.length > 0 ? (
-                  <div style={styles.membersGrid}>
-                    {filteredMembers.map((member) => (
-                      <div key={member.userId} style={styles.memberCard}>
-                        <div style={styles.memberGlow} />
-
-                        <div style={styles.memberAvatar}>
-                          {member.avatar ? (
-                            <img
-                              src={member.avatar}
-                              alt={`${member.displayName} avatar`}
-                              style={styles.memberAvatarImg}
-                            />
-                          ) : (
-                            member.displayName?.charAt(0)?.toUpperCase() || "M"
-                          )}
-                        </div>
-
-                        <div style={styles.memberText}>
-                          <h3 style={styles.memberName}>{member.displayName}</h3>
-                          <p style={styles.memberUsername}>@{member.username}</p>
-
-                          <div style={styles.memberMetaRow}>
-                            <span style={styles.memberBadge}>
-                              {member.roleLabel || member.roleName || "Member"}
-                            </span>
-
-                            {member.isConnectedUser && (
-                              <span style={styles.memberBadgeSoft}>
-                                Connected Account
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={styles.emptyState}>
-                    No directory members were found for the currently bound
-                    roles.
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+        {canRefreshMembers && (
+          <button
+            style={styles.refreshButton}
+            onClick={refreshMembers}
+            disabled={refreshingMembers}
+          >
+            {refreshingMembers ? "Refreshing..." : "Refresh"}
+          </button>
         )}
+      </div>
+    </div>
+
+    <div style={styles.membersSummaryRow}>
+      <div style={styles.summaryCard}>
+        <p style={styles.label}>Total Members</p>
+        <h2 style={styles.stat}>
+          {membersLoading ? "..." : filteredMembers.length}
+        </h2>
+        <p style={styles.sub}>Showing ranks 23–44</p>
+      </div>
+
+      <div style={styles.summaryCard}>
+        <p style={styles.label}>Connected User</p>
+        <h2 style={styles.summaryName}>{user.displayName}</h2>
+        <p style={styles.sub}>
+          {workspaceRoleLabel} • currently signed in
+        </p>
+      </div>
+    </div>
+
+    {membersError && <div style={styles.error}>{membersError}</div>}
+
+    {membersLoading ? (
+      <div style={styles.loading}>Loading members...</div>
+    ) : filteredMembers.length > 0 ? (
+      <div style={styles.membersGrid}>
+        {filteredMembers.map((member) => (
+          <div key={member.userId} style={styles.memberCard}>
+            <div style={styles.memberGlow} />
+
+            <div style={styles.memberAvatar}>
+              {member.avatar ? (
+                <img
+                  src={member.avatar}
+                  alt={`${member.displayName} avatar`}
+                  style={styles.memberAvatarImg}
+                />
+              ) : (
+                member.displayName?.charAt(0)?.toUpperCase() || "M"
+              )}
+            </div>
+
+            <div style={styles.memberText}>
+              <h3 style={styles.memberName}>{member.displayName}</h3>
+              <p style={styles.memberUsername}>@{member.username}</p>
+
+              <div style={styles.memberMetaRow}>
+                <span style={styles.memberBadge}>
+                  {member.roleLabel || member.roleName || "Member"}
+                </span>
+
+                {member.isConnectedUser && (
+                  <span style={styles.memberBadgeSoft}>
+                    Connected Account
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div style={styles.emptyState}>
+        No members found between ranks 23 and 44.
+      </div>
+    )}
+  </div>
+)}
 
         {user && activeTab === "Activity" && (
           <div style={styles.placeholderCard}>
