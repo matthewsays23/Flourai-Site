@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import flouraiLogo from "../assets/Text_Logo.png";
 
+import logo from "../assets/home.png";
+
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL || "https://api.flourai.io";
 
@@ -41,9 +43,8 @@ export default function Home() {
 
       <header style={styles.nav}>
         <div style={styles.brandWrap}>
-          <div style={styles.brandLeaf}></div>
-          <span style={styles.brandText}>Flourai</span>
-        </div>
+  <img src={logo} alt="Flourai" style={{ height: 40 }} />
+</div>
 
         {!isMobile && (
           <div style={styles.navLinks}>
