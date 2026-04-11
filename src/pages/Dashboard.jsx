@@ -102,7 +102,7 @@ export default function Dashboard() {
               setAvatar(avatarData.imageUrl);
             }
           } catch {
-            // keep dashboard alive even if avatar fails
+            // Keep dashboard alive even if avatar fails.
           }
         }
       } catch (err) {
@@ -144,15 +144,6 @@ export default function Dashboard() {
     loadWorkspaceAccess();
   }, [user]);
 
-  useEffect(() => {
-  if (activeTab !== "Members") return;
-  if (!user) return;
-  if (membersLoaded) return;
-
-  loadMembers();
-}, [activeTab, user, membersLoaded]);
-    if (membersLoaded) return;
-
   const loadMembers = async () => {
     try {
       setMembersLoading(true);
@@ -177,21 +168,26 @@ export default function Dashboard() {
     }
   };
 
+  useEffect(() => {
+    if (activeTab !== "Members") return;
+    if (!user) return;
+    if (membersLoaded) return;
+
+    loadMembers();
+  }, [activeTab, user, membersLoaded]);
+
   const refreshMembers = async () => {
     try {
       setRefreshingMembers(true);
       setMembersError("");
 
-      const refreshRes = await fetch(
-        `${API_BASE}/api/workspace/members/refresh`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const refreshRes = await fetch(`${API_BASE}/api/workspace/members/refresh`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
       const refreshData = await refreshRes.json();
 
@@ -199,6 +195,7 @@ export default function Dashboard() {
         throw new Error(refreshData.error || "Failed to refresh members");
       }
 
+      setMembersLoaded(false);
       await loadMembers();
     } catch (err) {
       setMembersError(err.message || "Failed to refresh members");
@@ -223,15 +220,8 @@ export default function Dashboard() {
   }, [members, memberSearch]);
 
   const permissions = workspaceAccess?.permissions || {};
-  const canViewMembers = !!permissions.canViewMembers;
   const canRefreshMembers = !!permissions.canRefreshMembers;
   const availableTabs = DEFAULT_TABS;
-
-  useEffect(() => {
-    if (!availableTabs.includes(activeTab)) {
-      setActiveTab("Overview");
-    }
-  }, [activeTab, availableTabs]);
 
   const workspaceName = workspaceAccess?.workspace?.name || "Flourai Panel";
   const workspaceRoleLabel = workspaceAccess?.viewer?.roleLabel || "Connected";
@@ -358,18 +348,21 @@ export default function Dashboard() {
                     <h2 style={styles.accountName}>{user.displayName}</h2>
                     <p style={styles.accountUsername}>@{user.username}</p>
                     <p style={styles.accountId}>ID: {user.robloxId}</p>
-                    <p style={styles.accountRole}>Workspace Role: {workspaceRoleLabel}</p>
+                    <p style={styles.accountRole}>
+                      Workspace Role: {workspaceRoleLabel}
+                    </p>
                   </div>
                 </div>
               </div>
 
-             <div style={styles.card}>
-  <p style={styles.label}>Activity</p>
-  <h2 style={styles.stat}>—</h2>
-  <p style={styles.sub}>
-    Tracked activity, time logs, and workspace performance will appear here.
-  </p>
-</div>
+              <div style={styles.card}>
+                <p style={styles.label}>Activity</p>
+                <h2 style={styles.stat}>—</h2>
+                <p style={styles.sub}>
+                  Tracked activity, time logs, and workspace performance will
+                  appear here.
+                </p>
+              </div>
 
               <div style={styles.card}>
                 <p style={styles.label}>Directory Count</p>
@@ -393,87 +386,107 @@ export default function Dashboard() {
           </>
         )}
 
-              {user && activeTab === "Members" && (
-  <div style={styles.membersWrap}>
-    <div style={styles.membersTopBar}>
-      <div>
-        <p style={styles.label}>Directory</p>
-        <h2 style={styles.membersTitle}>Members</h2>
-      </div>
+        {user && activeTab === "Members" && (
+          <div style={styles.membersWrap}>
+            <div style={styles.membersTopBar}>
+              <div>
+                <p style={styles.label}>Directory</p>
+                <h2 style={styles.membersTitle}>Members</h2>
+              </div>
 
-      <div style={styles.membersActions}>
-        <input
-          type="text"
-          placeholder="Search members..."
-          value={memberSearch}
-          onChange={(e) => setMemberSearch(e.target.value)}
-          style={styles.memberSearch}
-        />
+              <div style={styles.membersActions}>
+                <input
+                  type="text"
+                  placeholder="Search members..."
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                  style={styles.memberSearch}
+                />
 
-        {canRefreshMembers && (
-          <button
-            style={styles.refreshButton}
-            onClick={refreshMembers}
-            disabled={refreshingMembers}
-          >
-            {refreshingMembers ? "Refreshing..." : "Refresh"}
-          </button>
-        )}
-      </div>
-    </div>
-
-    <div style={styles.membersSummaryRow}>
-      <div style={styles.summaryCard}>
-        <p style={styles.label}>Total Members</p>
-        <h2 style={styles.stat}>
-          {membersLoading ? "..." : filteredMembers.length}
-        </h2>
-        <p style={styles.sub}>Showing ranks 23–44</p>
-      </div>
-
-      <div style={styles.summaryCard}>
-        <p style={styles.label}>Connected User</p>
-        <h2 style={styles.summaryName}>{user.displayName}</h2>
-        <p style={styles.sub}>
-          {workspaceRoleLabel} • currently signed in
-        </p>
-      </div>
-    </div>
-
-    {membersError && <div style={styles.error}>{membersError}</div>}
-
-    {membersLoading ? (
-      <div style={styles.loading}>Loading members...</div>
-    ) : (
-      <div style={styles.membersGrid}>
-        {filteredMembers.map((member) => (
-          <div key={member.userId} style={styles.memberCard}>
-            <div style={styles.memberGlow} />
-
-            <div style={styles.memberAvatar}>
-              {member.avatar ? (
-                <img src={member.avatar} style={styles.memberAvatarImg} />
-              ) : (
-                member.displayName?.charAt(0) || "M"
-              )}
-            </div>
-
-            <div style={styles.memberText}>
-              <h3 style={styles.memberName}>{member.displayName}</h3>
-              <p style={styles.memberUsername}>@{member.username}</p>
-
-              <div style={styles.memberMetaRow}>
-                <span style={styles.memberBadge}>
-                  {member.roleLabel}
-                </span>
+                {canRefreshMembers && (
+                  <button
+                    style={styles.refreshButton}
+                    onClick={refreshMembers}
+                    disabled={refreshingMembers}
+                  >
+                    {refreshingMembers ? "Refreshing..." : "Refresh"}
+                  </button>
+                )}
               </div>
             </div>
+
+            <div style={styles.membersSummaryRow}>
+              <div style={styles.summaryCard}>
+                <p style={styles.label}>Total Members</p>
+                <h2 style={styles.stat}>
+                  {membersLoading ? "..." : filteredMembers.length}
+                </h2>
+                <p style={styles.sub}>Showing synced directory members</p>
+              </div>
+
+              <div style={styles.summaryCard}>
+                <p style={styles.label}>Connected User</p>
+                <h2 style={styles.summaryName}>{user.displayName}</h2>
+                <p style={styles.sub}>
+                  {workspaceRoleLabel} • currently signed in
+                </p>
+              </div>
+            </div>
+
+            {membersError && <div style={styles.error}>{membersError}</div>}
+
+            {membersLoading ? (
+              <div style={styles.loading}>Loading members...</div>
+            ) : filteredMembers.length > 0 ? (
+              <div style={styles.membersGrid}>
+                {filteredMembers.map((member) => (
+                  <div key={member.userId} style={styles.memberCard}>
+                    <div style={styles.memberGlow} />
+
+                    <div style={styles.memberAvatar}>
+                      {member.avatar ? (
+                        <img
+                          src={member.avatar}
+                          alt={`${member.displayName} avatar`}
+                          style={styles.memberAvatarImg}
+                        />
+                      ) : (
+                        member.displayName?.charAt(0)?.toUpperCase() || "M"
+                      )}
+                    </div>
+
+                    <div style={styles.memberText}>
+                      <h3 style={styles.memberName}>{member.displayName}</h3>
+                      <p style={styles.memberUsername}>@{member.username}</p>
+
+                      <div style={styles.memberMetaRow}>
+                        <span style={styles.memberBadge}>
+                          {member.roleLabel || member.roleName || "Member"}
+                        </span>
+
+                        {typeof member.rank === "number" && (
+                          <span style={styles.memberBadgeSoft}>
+                            Rank {member.rank}
+                          </span>
+                        )}
+
+                        {member.isConnectedUser && (
+                          <span style={styles.memberBadgeSoft}>
+                            Connected Account
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={styles.emptyState}>
+                No synced members were found in the directory yet.
+              </div>
+            )}
           </div>
-        ))}
-      </div>
-    )}
-  </div>
-)}
+        )}
 
         {user && activeTab === "Activity" && (
           <div style={styles.placeholderCard}>
@@ -811,16 +824,6 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
     },
 
     placeholderCard: {
-      background: "rgba(255,255,255,0.78)",
-      borderRadius: "22px",
-      padding: isMobile ? "20px" : "24px",
-      backdropFilter: "blur(12px)",
-      border: "1px solid rgba(255,255,255,0.65)",
-      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
-      minWidth: 0,
-    },
-
-    lockedCard: {
       background: "rgba(255,255,255,0.78)",
       borderRadius: "22px",
       padding: isMobile ? "20px" : "24px",
