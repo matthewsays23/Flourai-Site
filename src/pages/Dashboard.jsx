@@ -25,6 +25,45 @@ function useResponsive() {
 
 const DEFAULT_TABS = ["Overview", "Activity", "Members", "Sessions", "Settings"];
 
+function formatMinutes(minutes = 0) {
+  const value = Number(minutes || 0);
+  const hrs = Math.floor(value / 60);
+  const mins = value % 60;
+  if (hrs <= 0) return `${mins}m`;
+  if (mins === 0) return `${hrs}h`;
+  return `${hrs}h ${mins}m`;
+}
+
+function getInitials(name = "") {
+  return name
+    .split(" ")
+    .map((part) => part?.charAt(0))
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function createMockWeeklyActivity(member) {
+  const seed = Number(member?.userId || 1) % 7;
+  return [
+    { label: "Mon", minutes: 15 + seed * 3 },
+    { label: "Tue", minutes: 22 + seed * 4 },
+    { label: "Wed", minutes: 12 + seed * 5 },
+    { label: "Thu", minutes: 34 + seed * 2 },
+    { label: "Fri", minutes: 41 + seed * 3 },
+    { label: "Sat", minutes: 28 + seed * 4 },
+    { label: "Sun", minutes: 19 + seed * 2 },
+  ];
+}
+
+function sumMinutes(items = []) {
+  return items.reduce((total, item) => total + Number(item.minutes || 0), 0);
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
 export default function Dashboard() {
   const { isMobile, isTablet } = useResponsive();
 
@@ -47,6 +86,14 @@ export default function Dashboard() {
   const [refreshingMembers, setRefreshingMembers] = useState(false);
 
   const [memberSearch, setMemberSearch] = useState("");
+
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [memberWarnings, setMemberWarnings] = useState({});
+  const [memberSuspensions, setMemberSuspensions] = useState({});
+  const [memberNotes, setMemberNotes] = useState({});
+  const [warningInput, setWarningInput] = useState("");
+  const [suspensionInput, setSuspensionInput] = useState("");
+  const [noteInput, setNoteInput] = useState("");
 
   useEffect(() => {
     document.body.style.margin = "0";
@@ -102,7 +149,7 @@ export default function Dashboard() {
               setAvatar(avatarData.imageUrl);
             }
           } catch {
-            // Keep dashboard alive even if avatar fails.
+            // keep alive
           }
         }
       } catch (err) {
@@ -116,33 +163,32 @@ export default function Dashboard() {
   }, []);
 
   const loadWorkspaceAccess = async () => {
-  try {
-    setAccessLoading(true);
-    setAccessError("");
+    try {
+      setAccessLoading(true);
+      setAccessError("");
 
-    const res = await fetch(`${API_BASE}/api/workspace/access`, {
-      credentials: "include",
-    });
+      const res = await fetch(`${API_BASE}/api/workspace/access`, {
+        credentials: "include",
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      throw new Error(data.error || "Failed to load workspace access");
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load workspace access");
+      }
+
+      setWorkspaceAccess(data);
+    } catch (err) {
+      setAccessError(err.message || "Failed to load workspace access");
+    } finally {
+      setAccessLoading(false);
     }
+  };
 
-    setWorkspaceAccess(data);
-  } catch (err) {
-    setAccessError(err.message || "Failed to load workspace access");
-  } finally {
-    setAccessLoading(false);
-  }
-};
-
-useEffect(() => {
-  if (!user) return;
-  loadWorkspaceAccess();
-}, [user]);
-
+  useEffect(() => {
+    if (!user) return;
+    loadWorkspaceAccess();
+  }, [user]);
 
   const loadMembers = async () => {
     try {
@@ -168,44 +214,40 @@ useEffect(() => {
     }
   };
 
- useEffect(() => {
-  if (!user) return;
-  if (membersLoaded) return;
-
-  loadMembers();
-}, [user, membersLoaded]);
+  useEffect(() => {
+    if (!user) return;
+    if (membersLoaded) return;
+    loadMembers();
+  }, [user, membersLoaded]);
 
   const refreshMembers = async () => {
-  try {
-    setRefreshingMembers(true);
-    setMembersError("");
+    try {
+      setRefreshingMembers(true);
+      setMembersError("");
 
-    const refreshRes = await fetch(`${API_BASE}/api/workspace/members/refresh`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+      const refreshRes = await fetch(`${API_BASE}/api/workspace/members/refresh`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-    const refreshData = await refreshRes.json();
+      const refreshData = await refreshRes.json();
 
-    if (!refreshRes.ok) {
-      throw new Error(refreshData.error || "Failed to refresh members");
+      if (!refreshRes.ok) {
+        throw new Error(refreshData.error || "Failed to refresh members");
+      }
+
+      setMembersLoaded(false);
+
+      await Promise.all([loadMembers(), loadWorkspaceAccess()]);
+    } catch (err) {
+      setMembersError(err.message || "Failed to refresh members");
+    } finally {
+      setRefreshingMembers(false);
     }
-
-    setMembersLoaded(false);
-
-    await Promise.all([
-      loadMembers(),
-      loadWorkspaceAccess(),
-    ]);
-  } catch (err) {
-    setMembersError(err.message || "Failed to refresh members");
-  } finally {
-    setRefreshingMembers(false);
-  }
-};
+  };
 
   const filteredMembers = useMemo(() => {
     const query = memberSearch.trim().toLowerCase();
@@ -221,6 +263,183 @@ useEffect(() => {
       );
     });
   }, [members, memberSearch]);
+
+  const enrichedMembers = useMemo(() => {
+    return filteredMembers.map((member) => {
+      const weeklyActivity = member.weeklyActivity || createMockWeeklyActivity(member);
+      const totalWeeklyMinutes = sumMinutes(weeklyActivity);
+      const warnings = memberWarnings[member.userId] || [];
+      const suspensions = memberSuspensions[member.userId] || [];
+      const notes = memberNotes[member.userId] || [];
+
+      return {
+        ...member,
+        weeklyActivity,
+        totalWeeklyMinutes,
+        warnings,
+        suspensions,
+        notes,
+      };
+    });
+  }, [filteredMembers, memberWarnings, memberSuspensions, memberNotes]);
+
+  const allEnrichedMembers = useMemo(() => {
+    return members.map((member) => {
+      const weeklyActivity = member.weeklyActivity || createMockWeeklyActivity(member);
+      const totalWeeklyMinutes = sumMinutes(weeklyActivity);
+      const warnings = memberWarnings[member.userId] || [];
+      const suspensions = memberSuspensions[member.userId] || [];
+      const notes = memberNotes[member.userId] || [];
+
+      return {
+        ...member,
+        weeklyActivity,
+        totalWeeklyMinutes,
+        warnings,
+        suspensions,
+        notes,
+      };
+    });
+  }, [members, memberWarnings, memberSuspensions, memberNotes]);
+
+  const activityStats = useMemo(() => {
+    const baseMembers = allEnrichedMembers;
+    const totalMembers = baseMembers.length;
+    const totalMinutes = baseMembers.reduce(
+      (total, member) => total + Number(member.totalWeeklyMinutes || 0),
+      0
+    );
+    const activeMembers = baseMembers.filter(
+      (member) => Number(member.totalWeeklyMinutes || 0) > 0
+    ).length;
+    const avgMinutes = totalMembers ? Math.round(totalMinutes / totalMembers) : 0;
+    const targetMinutes = 30;
+    const onTrackCount = baseMembers.filter(
+      (member) => Number(member.totalWeeklyMinutes || 0) >= targetMinutes
+    ).length;
+    const quotaRate = totalMembers
+      ? Math.round((onTrackCount / totalMembers) * 100)
+      : 0;
+
+    const dailyLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const weekSeries = dailyLabels.map((label) => ({
+      label,
+      minutes: baseMembers.reduce((total, member) => {
+        const day = member.weeklyActivity?.find((entry) => entry.label === label);
+        return total + Number(day?.minutes || 0);
+      }, 0),
+    }));
+
+    const topMembers = [...baseMembers]
+      .sort((a, b) => b.totalWeeklyMinutes - a.totalWeeklyMinutes)
+      .slice(0, 5);
+
+    return {
+      totalMembers,
+      totalMinutes,
+      activeMembers,
+      avgMinutes,
+      onTrackCount,
+      quotaRate,
+      weekSeries,
+      topMembers,
+      targetMinutes,
+    };
+  }, [allEnrichedMembers]);
+
+  const selectedMemberDetails = useMemo(() => {
+    if (!selectedMember) return null;
+
+    const match = allEnrichedMembers.find(
+      (member) => String(member.userId) === String(selectedMember.userId)
+    );
+
+    return match || null;
+  }, [selectedMember, allEnrichedMembers]);
+
+  useEffect(() => {
+    if (!selectedMemberDetails) {
+      setWarningInput("");
+      setSuspensionInput("");
+      setNoteInput("");
+      return;
+    }
+
+    setWarningInput("");
+    setSuspensionInput("");
+    setNoteInput("");
+  }, [selectedMemberDetails?.userId]);
+
+  const handleOpenMember = (member) => {
+    setSelectedMember(member);
+  };
+
+  const handleCloseMember = () => {
+    setSelectedMember(null);
+  };
+
+  const addWarning = () => {
+    if (!selectedMemberDetails || !warningInput.trim()) return;
+
+    setMemberWarnings((prev) => {
+      const current = prev[selectedMemberDetails.userId] || [];
+      return {
+        ...prev,
+        [selectedMemberDetails.userId]: [
+          {
+            id: Date.now(),
+            reason: warningInput.trim(),
+            createdAt: new Date().toISOString(),
+          },
+          ...current,
+        ],
+      };
+    });
+
+    setWarningInput("");
+  };
+
+  const addSuspension = () => {
+    if (!selectedMemberDetails || !suspensionInput.trim()) return;
+
+    setMemberSuspensions((prev) => {
+      const current = prev[selectedMemberDetails.userId] || [];
+      return {
+        ...prev,
+        [selectedMemberDetails.userId]: [
+          {
+            id: Date.now(),
+            details: suspensionInput.trim(),
+            createdAt: new Date().toISOString(),
+          },
+          ...current,
+        ],
+      };
+    });
+
+    setSuspensionInput("");
+  };
+
+  const addNote = () => {
+    if (!selectedMemberDetails || !noteInput.trim()) return;
+
+    setMemberNotes((prev) => {
+      const current = prev[selectedMemberDetails.userId] || [];
+      return {
+        ...prev,
+        [selectedMemberDetails.userId]: [
+          {
+            id: Date.now(),
+            body: noteInput.trim(),
+            createdAt: new Date().toISOString(),
+          },
+          ...current,
+        ],
+      };
+    });
+
+    setNoteInput("");
+  };
 
   const permissions = workspaceAccess?.permissions || {};
   const canRefreshMembers = !!permissions.canRefreshMembers;
@@ -240,6 +459,194 @@ useEffect(() => {
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />
+      )}
+
+      {selectedMemberDetails && (
+        <>
+          <div style={styles.memberDrawerOverlay} onClick={handleCloseMember} />
+          <div style={styles.memberDrawer}>
+            <div style={styles.memberDrawerHeader}>
+              <div style={styles.memberDrawerHeaderLeft}>
+                <div style={styles.memberDrawerAvatar}>
+                  {selectedMemberDetails.avatar ? (
+                    <img
+                      src={selectedMemberDetails.avatar}
+                      alt={`${selectedMemberDetails.displayName} avatar`}
+                      style={styles.memberDrawerAvatarImg}
+                    />
+                  ) : (
+                    getInitials(selectedMemberDetails.displayName || "Member")
+                  )}
+                </div>
+
+                <div style={{ minWidth: 0 }}>
+                  <h2 style={styles.memberDrawerName}>
+                    {selectedMemberDetails.displayName}
+                  </h2>
+                  <p style={styles.memberDrawerUsername}>
+                    @{selectedMemberDetails.username}
+                  </p>
+                  <div style={styles.memberDrawerBadgeRow}>
+                    <span style={styles.memberBadge}>
+                      {selectedMemberDetails.roleLabel ||
+                        selectedMemberDetails.roleName ||
+                        "Member"}
+                    </span>
+                    <span style={styles.memberBadgeSoft}>
+                      Weekly: {formatMinutes(selectedMemberDetails.totalWeeklyMinutes)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <button style={styles.closeDrawerButton} onClick={handleCloseMember}>
+                ✕
+              </button>
+            </div>
+
+            <div style={styles.memberDrawerGrid}>
+              <div style={styles.drawerSection}>
+                <p style={styles.label}>Profile</p>
+                <div style={styles.drawerStatGrid}>
+                  <div style={styles.drawerStatCard}>
+                    <span style={styles.drawerStatLabel}>Warnings</span>
+                    <strong style={styles.drawerStatValue}>
+                      {selectedMemberDetails.warnings.length}
+                    </strong>
+                  </div>
+                  <div style={styles.drawerStatCard}>
+                    <span style={styles.drawerStatLabel}>Suspensions</span>
+                    <strong style={styles.drawerStatValue}>
+                      {selectedMemberDetails.suspensions.length}
+                    </strong>
+                  </div>
+                  <div style={styles.drawerStatCard}>
+                    <span style={styles.drawerStatLabel}>Notes</span>
+                    <strong style={styles.drawerStatValue}>
+                      {selectedMemberDetails.notes.length}
+                    </strong>
+                  </div>
+                  <div style={styles.drawerStatCard}>
+                    <span style={styles.drawerStatLabel}>Weekly Total</span>
+                    <strong style={styles.drawerStatValue}>
+                      {formatMinutes(selectedMemberDetails.totalWeeklyMinutes)}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              <div style={styles.drawerSection}>
+                <p style={styles.label}>Weekly Activity</p>
+                <div style={styles.weeklyBars}>
+                  {selectedMemberDetails.weeklyActivity.map((day) => {
+                    const barHeight = clamp(day.minutes * 1.6, 14, 110);
+                    return (
+                      <div key={day.label} style={styles.weeklyBarWrap}>
+                        <div style={styles.weeklyBarTrack}>
+                          <div
+                            style={{
+                              ...styles.weeklyBarFill,
+                              height: `${barHeight}px`,
+                            }}
+                          />
+                        </div>
+                        <span style={styles.weeklyBarLabel}>{day.label}</span>
+                        <span style={styles.weeklyBarValue}>{day.minutes}m</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={styles.drawerSection}>
+                <p style={styles.label}>Add Warning</p>
+                <textarea
+                  value={warningInput}
+                  onChange={(e) => setWarningInput(e.target.value)}
+                  placeholder="Enter a warning reason..."
+                  style={styles.drawerTextarea}
+                />
+                <button style={styles.primaryButton} onClick={addWarning}>
+                  Add Warning
+                </button>
+
+                <div style={styles.drawerList}>
+                  {selectedMemberDetails.warnings.length > 0 ? (
+                    selectedMemberDetails.warnings.map((item) => (
+                      <div key={item.id} style={styles.drawerListItem}>
+                        <strong style={styles.drawerListTitle}>Warning</strong>
+                        <p style={styles.drawerListText}>{item.reason}</p>
+                        <span style={styles.drawerListDate}>
+                          {new Date(item.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={styles.drawerEmpty}>No warnings yet.</div>
+                  )}
+                </div>
+              </div>
+
+              <div style={styles.drawerSection}>
+                <p style={styles.label}>Add Suspension</p>
+                <textarea
+                  value={suspensionInput}
+                  onChange={(e) => setSuspensionInput(e.target.value)}
+                  placeholder="Enter suspension details..."
+                  style={styles.drawerTextarea}
+                />
+                <button style={styles.primaryButton} onClick={addSuspension}>
+                  Add Suspension
+                </button>
+
+                <div style={styles.drawerList}>
+                  {selectedMemberDetails.suspensions.length > 0 ? (
+                    selectedMemberDetails.suspensions.map((item) => (
+                      <div key={item.id} style={styles.drawerListItem}>
+                        <strong style={styles.drawerListTitle}>Suspension</strong>
+                        <p style={styles.drawerListText}>{item.details}</p>
+                        <span style={styles.drawerListDate}>
+                          {new Date(item.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={styles.drawerEmpty}>No suspensions yet.</div>
+                  )}
+                </div>
+              </div>
+
+              <div style={styles.drawerSectionFull}>
+                <p style={styles.label}>Staff Notes</p>
+                <textarea
+                  value={noteInput}
+                  onChange={(e) => setNoteInput(e.target.value)}
+                  placeholder="Add a private staff note..."
+                  style={styles.drawerTextareaLarge}
+                />
+                <button style={styles.primaryButton} onClick={addNote}>
+                  Save Note
+                </button>
+
+                <div style={styles.drawerList}>
+                  {selectedMemberDetails.notes.length > 0 ? (
+                    selectedMemberDetails.notes.map((item) => (
+                      <div key={item.id} style={styles.drawerListItem}>
+                        <strong style={styles.drawerListTitle}>Note</strong>
+                        <p style={styles.drawerListText}>{item.body}</p>
+                        <span style={styles.drawerListDate}>
+                          {new Date(item.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={styles.drawerEmpty}>No notes yet.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       <aside style={styles.sidebar}>
@@ -360,10 +767,9 @@ useEffect(() => {
 
               <div style={styles.card}>
                 <p style={styles.label}>Activity</p>
-                <h2 style={styles.stat}>—</h2>
+                <h2 style={styles.stat}>{formatMinutes(activityStats.totalMinutes)}</h2>
                 <p style={styles.sub}>
-                  Tracked activity, time logs, and workspace performance will
-                  appear here.
+                  Total tracked weekly activity across synced members.
                 </p>
               </div>
 
@@ -378,15 +784,152 @@ useEffect(() => {
               </div>
             </div>
 
-            <div style={styles.bottomCard}>
-              <p style={styles.label}>System Status</p>
-              <h3 style={styles.bottomTitle}>Workspace is connected 🌿</h3>
-              <p style={styles.sub}>
-                This panel is now structured for real group permissions, synced
-                members, and role-bound workspace access.
-              </p>
+            <div style={styles.bottomGrid}>
+              <div style={styles.bottomCard}>
+                <p style={styles.label}>System Status</p>
+                <h3 style={styles.bottomTitle}>Workspace is connected 🌿</h3>
+                <p style={styles.sub}>
+                  This panel is now structured for member moderation, activity
+                  visibility, session planning, and workspace configuration.
+                </p>
+              </div>
+
+              <div style={styles.bottomCard}>
+                <p style={styles.label}>Quick Numbers</p>
+                <div style={styles.quickInfoGrid}>
+                  <div style={styles.quickInfoPill}>
+                    <span>Active Members</span>
+                    <strong>{activityStats.activeMembers}</strong>
+                  </div>
+                  <div style={styles.quickInfoPill}>
+                    <span>Avg Weekly</span>
+                    <strong>{formatMinutes(activityStats.avgMinutes)}</strong>
+                  </div>
+                  <div style={styles.quickInfoPill}>
+                    <span>On Track</span>
+                    <strong>{activityStats.quotaRate}%</strong>
+                  </div>
+                </div>
+              </div>
             </div>
           </>
+        )}
+
+        {user && activeTab === "Activity" && (
+          <div style={styles.panelStack}>
+            <div style={styles.placeholderCard}>
+              <p style={styles.label}>Activity</p>
+              <h3 style={styles.bottomTitle}>Workspace activity overview</h3>
+              <p style={styles.sub}>
+                View tracked totals, weekly trends, top performers, and quota progress.
+              </p>
+            </div>
+
+            <div style={styles.activityTopGrid}>
+              <div style={styles.statCardEnhanced}>
+                <span style={styles.enhancedStatLabel}>Total Tracked</span>
+                <strong style={styles.enhancedStatValue}>
+                  {formatMinutes(activityStats.totalMinutes)}
+                </strong>
+                <small style={styles.enhancedStatSub}>All synced members this week</small>
+              </div>
+
+              <div style={styles.statCardEnhanced}>
+                <span style={styles.enhancedStatLabel}>Active Members</span>
+                <strong style={styles.enhancedStatValue}>
+                  {activityStats.activeMembers}
+                </strong>
+                <small style={styles.enhancedStatSub}>Members with logged activity</small>
+              </div>
+
+              <div style={styles.statCardEnhanced}>
+                <span style={styles.enhancedStatLabel}>Weekly Average</span>
+                <strong style={styles.enhancedStatValue}>
+                  {formatMinutes(activityStats.avgMinutes)}
+                </strong>
+                <small style={styles.enhancedStatSub}>Average per synced member</small>
+              </div>
+
+              <div style={styles.statCardEnhanced}>
+                <span style={styles.enhancedStatLabel}>Quota Completion</span>
+                <strong style={styles.enhancedStatValue}>
+                  {activityStats.quotaRate}%
+                </strong>
+                <small style={styles.enhancedStatSub}>
+                  Members at {activityStats.targetMinutes}m+
+                </small>
+              </div>
+            </div>
+
+            <div style={styles.activityBodyGrid}>
+              <div style={styles.activityChartCard}>
+                <p style={styles.label}>Weekly Trend</p>
+                <h3 style={styles.sectionTitle}>Group activity this week</h3>
+                <div style={styles.activityChartBars}>
+                  {activityStats.weekSeries.map((day) => {
+                    const barHeight = clamp(day.minutes * 0.7, 18, 170);
+                    return (
+                      <div key={day.label} style={styles.activityChartBarItem}>
+                        <span style={styles.activityChartValue}>{day.minutes}m</span>
+                        <div style={styles.activityChartTrack}>
+                          <div
+                            style={{
+                              ...styles.activityChartFill,
+                              height: `${barHeight}px`,
+                            }}
+                          />
+                        </div>
+                        <span style={styles.activityChartLabel}>{day.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={styles.activitySideCard}>
+                <p style={styles.label}>Top Performers</p>
+                <h3 style={styles.sectionTitle}>Most active members</h3>
+                <div style={styles.topList}>
+                  {activityStats.topMembers.length > 0 ? (
+                    activityStats.topMembers.map((member, index) => (
+                      <div
+                        key={member.userId}
+                        style={styles.topListItem}
+                        onClick={() => handleOpenMember(member)}
+                      >
+                        <div style={styles.topListLeft}>
+                          <div style={styles.topRank}>#{index + 1}</div>
+                          <div style={styles.topAvatar}>
+                            {member.avatar ? (
+                              <img
+                                src={member.avatar}
+                                alt={member.displayName}
+                                style={styles.topAvatarImg}
+                              />
+                            ) : (
+                              getInitials(member.displayName || "M")
+                            )}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <strong style={styles.topName}>{member.displayName}</strong>
+                            <p style={styles.topMeta}>
+                              @{member.username} •{" "}
+                              {member.roleLabel || member.roleName || "Member"}
+                            </p>
+                          </div>
+                        </div>
+                        <div style={styles.topTime}>
+                          {formatMinutes(member.totalWeeklyMinutes)}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={styles.emptyState}>No activity data yet.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {user && activeTab === "Members" && (
@@ -422,7 +965,7 @@ useEffect(() => {
               <div style={styles.summaryCard}>
                 <p style={styles.label}>Total Members</p>
                 <h2 style={styles.stat}>
-                  {membersLoading ? "..." : filteredMembers.length}
+                  {membersLoading ? "..." : enrichedMembers.length}
                 </h2>
                 <p style={styles.sub}>Showing synced directory members</p>
               </div>
@@ -440,10 +983,14 @@ useEffect(() => {
 
             {membersLoading ? (
               <div style={styles.loading}>Loading members...</div>
-            ) : filteredMembers.length > 0 ? (
+            ) : enrichedMembers.length > 0 ? (
               <div style={styles.membersGrid}>
-                {filteredMembers.map((member) => (
-                  <div key={member.userId} style={styles.memberCard}>
+                {enrichedMembers.map((member) => (
+                  <div
+                    key={member.userId}
+                    style={styles.memberCardClickable}
+                    onClick={() => handleOpenMember(member)}
+                  >
                     <div style={styles.memberGlow} />
 
                     <div style={styles.memberAvatar}>
@@ -467,12 +1014,15 @@ useEffect(() => {
                           {member.roleLabel || member.roleName || "Member"}
                         </span>
 
-
                         {member.isConnectedUser && (
                           <span style={styles.memberBadgeSoft}>
                             Connected Account
                           </span>
                         )}
+
+                        <span style={styles.memberBadgeSoft}>
+                          {formatMinutes(member.totalWeeklyMinutes)} this week
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -486,34 +1036,164 @@ useEffect(() => {
           </div>
         )}
 
-        {user && activeTab === "Activity" && (
-          <div style={styles.placeholderCard}>
-            <p style={styles.label}>Activity</p>
-            <h3 style={styles.bottomTitle}>Activity panel coming next</h3>
-            <p style={styles.sub}>
-              This section will show tracked time, trends, and top performers.
-            </p>
-          </div>
-        )}
-
         {user && activeTab === "Sessions" && (
-          <div style={styles.placeholderCard}>
-            <p style={styles.label}>Sessions</p>
-            <h3 style={styles.bottomTitle}>Sessions panel coming next</h3>
-            <p style={styles.sub}>
-              This section will manage trainings, events, and session records.
-            </p>
+          <div style={styles.panelStack}>
+            <div style={styles.placeholderCard}>
+              <p style={styles.label}>Sessions</p>
+              <h3 style={styles.bottomTitle}>Training and session management</h3>
+              <p style={styles.sub}>
+                This section is ready for scheduled trainings, host claims, attendance,
+                and session history.
+              </p>
+            </div>
+
+            <div style={styles.sessionGrid}>
+              <div style={styles.sessionCard}>
+                <p style={styles.label}>Upcoming</p>
+                <h3 style={styles.sectionTitle}>Next scheduled sessions</h3>
+                <div style={styles.sessionList}>
+                  <div style={styles.sessionListItem}>
+                    <strong>Orientation Training</strong>
+                    <span>Today • 7:00 PM</span>
+                  </div>
+                  <div style={styles.sessionListItem}>
+                    <strong>Staff Development</strong>
+                    <span>Tomorrow • 6:30 PM</span>
+                  </div>
+                  <div style={styles.sessionListItem}>
+                    <strong>Leadership Review</strong>
+                    <span>Friday • 8:00 PM</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={styles.sessionCard}>
+                <p style={styles.label}>Status</p>
+                <h3 style={styles.sectionTitle}>Session controls</h3>
+                <div style={styles.settingsList}>
+                  <div style={styles.settingRow}>
+                    <div>
+                      <strong style={styles.settingTitle}>Host claiming</strong>
+                      <p style={styles.settingSub}>
+                        Allow one host to claim a live training slot.
+                      </p>
+                    </div>
+                    <div style={styles.toggleOn}>Enabled</div>
+                  </div>
+
+                  <div style={styles.settingRow}>
+                    <div>
+                      <strong style={styles.settingTitle}>Attendance tracking</strong>
+                      <p style={styles.settingSub}>
+                        Track who attended each session.
+                      </p>
+                    </div>
+                    <div style={styles.toggleOn}>Enabled</div>
+                  </div>
+
+                  <div style={styles.settingRow}>
+                    <div>
+                      <strong style={styles.settingTitle}>Session reminders</strong>
+                      <p style={styles.settingSub}>
+                        Push reminders before scheduled events.
+                      </p>
+                    </div>
+                    <div style={styles.toggleOff}>Soon</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
         {user && activeTab === "Settings" && (
-          <div style={styles.placeholderCard}>
-            <p style={styles.label}>Settings</p>
-            <h3 style={styles.bottomTitle}>Settings panel coming next</h3>
-            <p style={styles.sub}>
-              This section will hold workspace options, role binds, and access
-              controls.
-            </p>
+          <div style={styles.panelStack}>
+            <div style={styles.placeholderCard}>
+              <p style={styles.label}>Settings</p>
+              <h3 style={styles.bottomTitle}>Workspace configuration</h3>
+              <p style={styles.sub}>
+                Manage directory behavior, moderation tools, sessions, and activity
+                visibility from one place.
+              </p>
+            </div>
+
+            <div style={styles.settingsGrid}>
+              <div style={styles.settingsCard}>
+                <p style={styles.label}>Moderation</p>
+                <div style={styles.settingsList}>
+                  <div style={styles.settingRow}>
+                    <div>
+                      <strong style={styles.settingTitle}>Warnings system</strong>
+                      <p style={styles.settingSub}>
+                        Enable warning records inside member profiles.
+                      </p>
+                    </div>
+                    <div style={styles.toggleOn}>Enabled</div>
+                  </div>
+
+                  <div style={styles.settingRow}>
+                    <div>
+                      <strong style={styles.settingTitle}>Suspension records</strong>
+                      <p style={styles.settingSub}>
+                        Save suspension history on each user.
+                      </p>
+                    </div>
+                    <div style={styles.toggleOn}>Enabled</div>
+                  </div>
+
+                  <div style={styles.settingRow}>
+                    <div>
+                      <strong style={styles.settingTitle}>Private staff notes</strong>
+                      <p style={styles.settingSub}>
+                        Keep internal notes on members.
+                      </p>
+                    </div>
+                    <div style={styles.toggleOn}>Enabled</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={styles.settingsCard}>
+                <p style={styles.label}>Workspace</p>
+                <div style={styles.settingsList}>
+                  <div style={styles.settingRow}>
+                    <div>
+                      <strong style={styles.settingTitle}>Auto refresh members</strong>
+                      <p style={styles.settingSub}>
+                        Refresh synced member directory on demand.
+                      </p>
+                    </div>
+                    <div style={styles.toggleOn}>
+                      {canRefreshMembers ? "Allowed" : "Limited"}
+                    </div>
+                  </div>
+
+                  <div style={styles.settingRow}>
+                    <div>
+                      <strong style={styles.settingTitle}>Activity quotas</strong>
+                      <p style={styles.settingSub}>
+                        Weekly target currently set to 30 minutes.
+                      </p>
+                    </div>
+                    <div style={styles.toggleOn}>30m</div>
+                  </div>
+
+                  <div style={styles.settingRow}>
+                    <div>
+                      <strong style={styles.settingTitle}>Member sync status</strong>
+                      <p style={styles.settingSub}>
+                        View last successful workspace sync.
+                      </p>
+                    </div>
+                    <div style={styles.toggleOff}>
+                      {lastMemberSync
+                        ? new Date(lastMemberSync).toLocaleDateString()
+                        : "Pending"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </main>
@@ -789,6 +1469,13 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       gap: "18px",
     },
 
+    bottomGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+      gap: "20px",
+      marginTop: "20px",
+    },
+
     cardLarge: {
       gridColumn: isTablet ? "1 / -1" : "auto",
       background: "rgba(255,255,255,0.78)",
@@ -811,7 +1498,6 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
     },
 
     bottomCard: {
-      marginTop: "20px",
       background: "rgba(255,255,255,0.78)",
       borderRadius: "22px",
       padding: isMobile ? "20px" : "24px",
@@ -943,6 +1629,25 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       lineHeight: 1.2,
     },
 
+    quickInfoGrid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(3, 1fr)",
+      gap: "12px",
+      marginTop: "16px",
+    },
+
+    quickInfoPill: {
+      background: "rgba(237,248,240,0.95)",
+      border: "1px solid rgba(111,160,128,0.16)",
+      borderRadius: "18px",
+      padding: "14px",
+      display: "flex",
+      flexDirection: "column",
+      gap: "8px",
+      fontSize: "14px",
+      color: "#5b7467",
+    },
+
     error: {
       background: "#ffe5e5",
       padding: "12px",
@@ -957,6 +1662,222 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       borderRadius: "12px",
       color: "#203229",
       border: "1px solid rgba(47,93,70,0.08)",
+    },
+
+    panelStack: {
+      display: "grid",
+      gap: "18px",
+    },
+
+    activityTopGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile
+        ? "1fr"
+        : isTablet
+        ? "1fr 1fr"
+        : "repeat(4, 1fr)",
+      gap: "18px",
+    },
+
+    statCardEnhanced: {
+      background: "rgba(255,255,255,0.78)",
+      borderRadius: "22px",
+      padding: "22px",
+      backdropFilter: "blur(12px)",
+      border: "1px solid rgba(255,255,255,0.65)",
+      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
+    },
+
+    enhancedStatLabel: {
+      display: "block",
+      fontSize: "13px",
+      color: "#6f8a7d",
+      textTransform: "uppercase",
+      letterSpacing: "0.08em",
+      marginBottom: "10px",
+    },
+
+    enhancedStatValue: {
+      display: "block",
+      fontSize: "32px",
+      fontWeight: 800,
+      color: "#203229",
+      lineHeight: 1.1,
+    },
+
+    enhancedStatSub: {
+      display: "block",
+      marginTop: "10px",
+      fontSize: "14px",
+      color: "#6b7c73",
+    },
+
+    activityBodyGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1.35fr 1fr",
+      gap: "18px",
+    },
+
+    activityChartCard: {
+      background: "rgba(255,255,255,0.78)",
+      borderRadius: "22px",
+      padding: "24px",
+      backdropFilter: "blur(12px)",
+      border: "1px solid rgba(255,255,255,0.65)",
+      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
+    },
+
+    activitySideCard: {
+      background: "rgba(255,255,255,0.78)",
+      borderRadius: "22px",
+      padding: "24px",
+      backdropFilter: "blur(12px)",
+      border: "1px solid rgba(255,255,255,0.65)",
+      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
+    },
+
+    sectionTitle: {
+      fontSize: "22px",
+      fontWeight: 800,
+      color: "#203229",
+      margin: "10px 0 0",
+    },
+
+    activityChartBars: {
+      height: isMobile ? "220px" : "300px",
+      marginTop: "26px",
+      display: "grid",
+      gridTemplateColumns: "repeat(7, 1fr)",
+      gap: "14px",
+      alignItems: "end",
+    },
+
+    activityChartBarItem: {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "end",
+      height: "100%",
+      minWidth: 0,
+    },
+
+    activityChartValue: {
+      fontSize: "12px",
+      color: "#5b7467",
+      marginBottom: "10px",
+      fontWeight: 700,
+    },
+
+    activityChartTrack: {
+      width: "100%",
+      maxWidth: "56px",
+      height: "190px",
+      borderRadius: "999px",
+      background: "rgba(232,242,235,0.95)",
+      border: "1px solid rgba(111,160,128,0.10)",
+      display: "flex",
+      alignItems: "flex-end",
+      justifyContent: "center",
+      padding: "6px",
+    },
+
+    activityChartFill: {
+      width: "100%",
+      borderRadius: "999px",
+      background: "linear-gradient(180deg, #72b48b 0%, #2f5d46 100%)",
+      boxShadow: "0 10px 22px rgba(47,93,70,0.28)",
+    },
+
+    activityChartLabel: {
+      fontSize: "12px",
+      color: "#6b7c73",
+      marginTop: "10px",
+      fontWeight: 700,
+    },
+
+    topList: {
+      display: "grid",
+      gap: "12px",
+      marginTop: "20px",
+    },
+
+    topListItem: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: "14px",
+      background: "rgba(237,248,240,0.95)",
+      border: "1px solid rgba(111,160,128,0.12)",
+      borderRadius: "18px",
+      padding: "14px",
+      cursor: "pointer",
+    },
+
+    topListLeft: {
+      display: "flex",
+      alignItems: "center",
+      gap: "12px",
+      minWidth: 0,
+    },
+
+    topRank: {
+      width: "34px",
+      height: "34px",
+      borderRadius: "50%",
+      background: "#2f5d46",
+      color: "#fff",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontWeight: 800,
+      fontSize: "12px",
+      flexShrink: 0,
+    },
+
+    topAvatar: {
+      width: "44px",
+      height: "44px",
+      borderRadius: "50%",
+      overflow: "hidden",
+      background: "#4f8d68",
+      color: "#fff",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontWeight: 700,
+      flexShrink: 0,
+    },
+
+    topAvatarImg: {
+      width: "100%",
+      height: "100%",
+      objectFit: "cover",
+      display: "block",
+    },
+
+    topName: {
+      display: "block",
+      fontSize: "15px",
+      color: "#203229",
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+    },
+
+    topMeta: {
+      margin: "4px 0 0",
+      fontSize: "13px",
+      color: "#6b7c73",
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+    },
+
+    topTime: {
+      fontSize: "14px",
+      fontWeight: 800,
+      color: "#2f5d46",
+      flexShrink: 0,
     },
 
     membersWrap: {
@@ -1046,7 +1967,7 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       gap: "18px",
     },
 
-    memberCard: {
+    memberCardClickable: {
       position: "relative",
       display: "flex",
       alignItems: "center",
@@ -1059,6 +1980,7 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
       minWidth: 0,
       overflow: "hidden",
+      cursor: "pointer",
     },
 
     memberGlow: {
@@ -1156,6 +2078,389 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
       color: "#5b7467",
       fontSize: "16px",
+    },
+
+    sessionGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+      gap: "18px",
+    },
+
+    sessionCard: {
+      background: "rgba(255,255,255,0.78)",
+      borderRadius: "22px",
+      padding: "24px",
+      backdropFilter: "blur(12px)",
+      border: "1px solid rgba(255,255,255,0.65)",
+      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
+    },
+
+    sessionList: {
+      display: "grid",
+      gap: "12px",
+      marginTop: "20px",
+    },
+
+    sessionListItem: {
+      background: "rgba(237,248,240,0.95)",
+      border: "1px solid rgba(111,160,128,0.14)",
+      borderRadius: "18px",
+      padding: "14px",
+      display: "flex",
+      flexDirection: "column",
+      gap: "6px",
+      color: "#203229",
+    },
+
+    settingsGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+      gap: "18px",
+    },
+
+    settingsCard: {
+      background: "rgba(255,255,255,0.78)",
+      borderRadius: "22px",
+      padding: "24px",
+      backdropFilter: "blur(12px)",
+      border: "1px solid rgba(255,255,255,0.65)",
+      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
+    },
+
+    settingsList: {
+      display: "grid",
+      gap: "14px",
+      marginTop: "20px",
+    },
+
+    settingRow: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: "16px",
+      padding: "14px",
+      borderRadius: "18px",
+      background: "rgba(237,248,240,0.95)",
+      border: "1px solid rgba(111,160,128,0.14)",
+    },
+
+    settingTitle: {
+      display: "block",
+      fontSize: "15px",
+      color: "#203229",
+      marginBottom: "4px",
+    },
+
+    settingSub: {
+      margin: 0,
+      fontSize: "13px",
+      color: "#6b7c73",
+      lineHeight: 1.5,
+    },
+
+    toggleOn: {
+      padding: "8px 12px",
+      borderRadius: "999px",
+      background: "rgba(191, 232, 208, 0.75)",
+      color: "#2f5d46",
+      fontSize: "12px",
+      fontWeight: 800,
+      border: "1px solid rgba(111,160,128,0.14)",
+      flexShrink: 0,
+    },
+
+    toggleOff: {
+      padding: "8px 12px",
+      borderRadius: "999px",
+      background: "rgba(255,255,255,0.95)",
+      color: "#6b7c73",
+      fontSize: "12px",
+      fontWeight: 800,
+      border: "1px solid rgba(47,93,70,0.08)",
+      flexShrink: 0,
+    },
+
+    memberDrawerOverlay: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(16, 25, 20, 0.42)",
+      zIndex: 39,
+    },
+
+    memberDrawer: {
+      position: "fixed",
+      top: 0,
+      right: 0,
+      width: isMobile ? "100%" : "min(760px, 92vw)",
+      height: "100vh",
+      background: "linear-gradient(180deg, #f8fcf8 0%, #edf6ef 100%)",
+      boxShadow: "-10px 0 40px rgba(0,0,0,0.18)",
+      zIndex: 40,
+      padding: isMobile ? "18px 16px 24px" : "24px 24px 28px",
+      overflowY: "auto",
+      borderLeft: "1px solid rgba(111,160,128,0.14)",
+    },
+
+    memberDrawerHeader: {
+      display: "flex",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: "16px",
+      marginBottom: "18px",
+    },
+
+    memberDrawerHeaderLeft: {
+      display: "flex",
+      gap: "16px",
+      alignItems: "center",
+      minWidth: 0,
+    },
+
+    memberDrawerAvatar: {
+      width: "76px",
+      height: "76px",
+      borderRadius: "50%",
+      background: "#4f8d68",
+      color: "#fff",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+      fontWeight: 800,
+      fontSize: "22px",
+      flexShrink: 0,
+      boxShadow:
+        "0 0 0 4px rgba(124,255,180,0.16), 0 0 28px rgba(102,201,138,0.28)",
+    },
+
+    memberDrawerAvatarImg: {
+      width: "100%",
+      height: "100%",
+      objectFit: "cover",
+      display: "block",
+    },
+
+    memberDrawerName: {
+      margin: 0,
+      fontSize: isMobile ? "26px" : "30px",
+      lineHeight: 1.1,
+      color: "#203229",
+      fontWeight: 800,
+    },
+
+    memberDrawerUsername: {
+      margin: "6px 0 0",
+      fontSize: "15px",
+      color: "#5b7467",
+    },
+
+    memberDrawerBadgeRow: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "8px",
+      marginTop: "10px",
+    },
+
+    closeDrawerButton: {
+      width: "42px",
+      height: "42px",
+      borderRadius: "14px",
+      border: "1px solid rgba(47,93,70,0.12)",
+      background: "#fff",
+      color: "#203229",
+      fontSize: "18px",
+      fontWeight: 700,
+      cursor: "pointer",
+      flexShrink: 0,
+    },
+
+    memberDrawerGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+      gap: "18px",
+    },
+
+    drawerSection: {
+      background: "rgba(255,255,255,0.84)",
+      borderRadius: "22px",
+      padding: "20px",
+      border: "1px solid rgba(255,255,255,0.65)",
+      boxShadow: "0 20px 50px rgba(0,0,0,0.06)",
+    },
+
+    drawerSectionFull: {
+      gridColumn: isMobile ? "auto" : "1 / -1",
+      background: "rgba(255,255,255,0.84)",
+      borderRadius: "22px",
+      padding: "20px",
+      border: "1px solid rgba(255,255,255,0.65)",
+      boxShadow: "0 20px 50px rgba(0,0,0,0.06)",
+    },
+
+    drawerStatGrid: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "12px",
+      marginTop: "18px",
+    },
+
+    drawerStatCard: {
+      background: "rgba(237,248,240,0.95)",
+      borderRadius: "18px",
+      border: "1px solid rgba(111,160,128,0.12)",
+      padding: "14px",
+      display: "grid",
+      gap: "6px",
+    },
+
+    drawerStatLabel: {
+      fontSize: "12px",
+      color: "#6f8a7d",
+      textTransform: "uppercase",
+      letterSpacing: "0.08em",
+    },
+
+    drawerStatValue: {
+      fontSize: "22px",
+      color: "#203229",
+      fontWeight: 800,
+    },
+
+    weeklyBars: {
+      marginTop: "20px",
+      display: "grid",
+      gridTemplateColumns: "repeat(7, 1fr)",
+      gap: "10px",
+      alignItems: "end",
+      minHeight: "180px",
+    },
+
+    weeklyBarWrap: {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: "8px",
+      minWidth: 0,
+    },
+
+    weeklyBarTrack: {
+      width: "100%",
+      maxWidth: "38px",
+      height: "120px",
+      borderRadius: "999px",
+      background: "rgba(232,242,235,0.95)",
+      padding: "5px",
+      display: "flex",
+      alignItems: "flex-end",
+      justifyContent: "center",
+      border: "1px solid rgba(111,160,128,0.10)",
+    },
+
+    weeklyBarFill: {
+      width: "100%",
+      borderRadius: "999px",
+      background: "linear-gradient(180deg, #72b48b 0%, #2f5d46 100%)",
+      boxShadow: "0 10px 22px rgba(47,93,70,0.20)",
+    },
+
+    weeklyBarLabel: {
+      fontSize: "11px",
+      color: "#6b7c73",
+      fontWeight: 700,
+    },
+
+    weeklyBarValue: {
+      fontSize: "11px",
+      color: "#5b7467",
+      fontWeight: 700,
+    },
+
+    drawerTextarea: {
+      width: "100%",
+      minHeight: "90px",
+      resize: "vertical",
+      marginTop: "16px",
+      borderRadius: "16px",
+      border: "1px solid rgba(47,93,70,0.12)",
+      background: "#fff",
+      padding: "14px",
+      fontFamily: "inherit",
+      fontSize: "14px",
+      color: "#203229",
+      outline: "none",
+      boxSizing: "border-box",
+    },
+
+    drawerTextareaLarge: {
+      width: "100%",
+      minHeight: "120px",
+      resize: "vertical",
+      marginTop: "16px",
+      borderRadius: "16px",
+      border: "1px solid rgba(47,93,70,0.12)",
+      background: "#fff",
+      padding: "14px",
+      fontFamily: "inherit",
+      fontSize: "14px",
+      color: "#203229",
+      outline: "none",
+      boxSizing: "border-box",
+    },
+
+    primaryButton: {
+      marginTop: "12px",
+      padding: "12px 16px",
+      borderRadius: "14px",
+      border: "1px solid rgba(47,93,70,0.12)",
+      background: "#2f5d46",
+      color: "#fff",
+      fontSize: "14px",
+      fontWeight: 700,
+      cursor: "pointer",
+      boxShadow: "0 10px 25px rgba(47,93,70,0.18)",
+    },
+
+    drawerList: {
+      display: "grid",
+      gap: "10px",
+      marginTop: "16px",
+    },
+
+    drawerListItem: {
+      background: "rgba(237,248,240,0.95)",
+      borderRadius: "16px",
+      border: "1px solid rgba(111,160,128,0.12)",
+      padding: "14px",
+      display: "grid",
+      gap: "6px",
+    },
+
+    drawerListTitle: {
+      fontSize: "14px",
+      color: "#203229",
+    },
+
+    drawerListText: {
+      margin: 0,
+      fontSize: "14px",
+      color: "#5b7467",
+      lineHeight: 1.5,
+      whiteSpace: "pre-wrap",
+    },
+
+    drawerListDate: {
+      fontSize: "12px",
+      color: "#6f8a7d",
+      fontWeight: 700,
+    },
+
+    drawerEmpty: {
+      background: "rgba(255,255,255,0.84)",
+      borderRadius: "16px",
+      border: "1px dashed rgba(111,160,128,0.18)",
+      padding: "14px",
+      color: "#6b7c73",
+      fontSize: "14px",
     },
   };
 }
