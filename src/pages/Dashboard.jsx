@@ -35,7 +35,7 @@ function formatMinutes(minutes = 0) {
 }
 
 function getInitials(name = "") {
-  return name
+  return String(name)
     .split(" ")
     .map((part) => part?.charAt(0))
     .join("")
@@ -43,26 +43,19 @@ function getInitials(name = "") {
     .toUpperCase();
 }
 
-function createMockWeeklyActivity(member) {
-  const seed = Number(member?.userId || 1) % 7;
-  return [
-    { label: "Mon", minutes: 15 + seed * 3 },
-    { label: "Tue", minutes: 22 + seed * 4 },
-    { label: "Wed", minutes: 12 + seed * 5 },
-    { label: "Thu", minutes: 34 + seed * 2 },
-    { label: "Fri", minutes: 41 + seed * 3 },
-    { label: "Sat", minutes: 28 + seed * 4 },
-    { label: "Sun", minutes: 19 + seed * 2 },
-  ];
-}
-
-function sumMinutes(items = []) {
-  return items.reduce((total, item) => total + Number(item.minutes || 0), 0);
-}
-
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
+
+const DEFAULT_WEEKLY_ACTIVITY = [
+  { label: "Mon", minutes: 0 },
+  { label: "Tue", minutes: 0 },
+  { label: "Wed", minutes: 0 },
+  { label: "Thu", minutes: 0 },
+  { label: "Fri", minutes: 0 },
+  { label: "Sat", minutes: 0 },
+  { label: "Sun", minutes: 0 },
+];
 
 export default function Dashboard() {
   const { isMobile, isTablet } = useResponsive();
@@ -84,16 +77,25 @@ export default function Dashboard() {
   const [membersError, setMembersError] = useState("");
   const [membersLoaded, setMembersLoaded] = useState(false);
   const [refreshingMembers, setRefreshingMembers] = useState(false);
-
   const [memberSearch, setMemberSearch] = useState("");
 
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [memberWarnings, setMemberWarnings] = useState({});
-  const [memberSuspensions, setMemberSuspensions] = useState({});
-  const [memberNotes, setMemberNotes] = useState({});
+  const [activityOverview, setActivityOverview] = useState(null);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState("");
+
+  const [selectedMemberId, setSelectedMemberId] = useState(null);
+  const [selectedMemberProfile, setSelectedMemberProfile] = useState(null);
+  const [selectedMemberLoading, setSelectedMemberLoading] = useState(false);
+  const [selectedMemberError, setSelectedMemberError] = useState("");
+
   const [warningInput, setWarningInput] = useState("");
   const [suspensionInput, setSuspensionInput] = useState("");
   const [noteInput, setNoteInput] = useState("");
+  const [weeklyEditor, setWeeklyEditor] = useState(DEFAULT_WEEKLY_ACTIVITY);
+  const [savingWarning, setSavingWarning] = useState(false);
+  const [savingSuspension, setSavingSuspension] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
+  const [savingActivity, setSavingActivity] = useState(false);
 
   useEffect(() => {
     document.body.style.margin = "0";
@@ -149,7 +151,7 @@ export default function Dashboard() {
               setAvatar(avatarData.imageUrl);
             }
           } catch {
-            // keep alive
+            // ignore avatar failure
           }
         }
       } catch (err) {
@@ -185,11 +187,6 @@ export default function Dashboard() {
     }
   };
 
-  useEffect(() => {
-    if (!user) return;
-    loadWorkspaceAccess();
-  }, [user]);
-
   const loadMembers = async () => {
     try {
       setMembersLoading(true);
@@ -214,11 +211,44 @@ export default function Dashboard() {
     }
   };
 
+  const loadActivityOverview = async () => {
+    try {
+      setActivityLoading(true);
+      setActivityError("");
+
+      const res = await fetch(`${API_BASE}/api/workspace/activity/overview`, {
+        credentials: "include",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load activity overview");
+      }
+
+      setActivityOverview(data);
+    } catch (err) {
+      setActivityError(err.message || "Failed to load activity overview");
+    } finally {
+      setActivityLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    loadWorkspaceAccess();
+  }, [user]);
+
   useEffect(() => {
     if (!user) return;
     if (membersLoaded) return;
     loadMembers();
   }, [user, membersLoaded]);
+
+  useEffect(() => {
+    if (!user) return;
+    loadActivityOverview();
+  }, [user]);
 
   const refreshMembers = async () => {
     try {
@@ -241,11 +271,176 @@ export default function Dashboard() {
 
       setMembersLoaded(false);
 
-      await Promise.all([loadMembers(), loadWorkspaceAccess()]);
+      await Promise.all([
+        loadMembers(),
+        loadWorkspaceAccess(),
+        loadActivityOverview(),
+      ]);
+
+      if (selectedMemberId) {
+        await loadMemberProfile(selectedMemberId);
+      }
     } catch (err) {
       setMembersError(err.message || "Failed to refresh members");
     } finally {
       setRefreshingMembers(false);
+    }
+  };
+
+  const loadMemberProfile = async (userId) => {
+    try {
+      setSelectedMemberLoading(true);
+      setSelectedMemberError("");
+
+      const res = await fetch(
+        `${API_BASE}/api/workspace/members/${userId}/profile`,
+        {
+          credentials: "include",
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load member profile");
+      }
+
+      setSelectedMemberId(userId);
+      setSelectedMemberProfile(data.member);
+      setWeeklyEditor(
+        Array.isArray(data.member?.weeklyActivity) &&
+          data.member.weeklyActivity.length
+          ? data.member.weeklyActivity
+          : DEFAULT_WEEKLY_ACTIVITY
+      );
+      setWarningInput("");
+      setSuspensionInput("");
+      setNoteInput("");
+    } catch (err) {
+      setSelectedMemberError(err.message || "Failed to load member profile");
+    } finally {
+      setSelectedMemberLoading(false);
+    }
+  };
+
+  const closeMemberDrawer = () => {
+    setSelectedMemberId(null);
+    setSelectedMemberProfile(null);
+    setSelectedMemberError("");
+    setWarningInput("");
+    setSuspensionInput("");
+    setNoteInput("");
+    setWeeklyEditor(DEFAULT_WEEKLY_ACTIVITY);
+  };
+
+  const createMemberItem = async (type) => {
+    if (!selectedMemberId) return;
+
+    const configMap = {
+      warning: {
+        endpoint: "warnings",
+        body: { reason: warningInput.trim() },
+        valid: !!warningInput.trim(),
+        setSaving: setSavingWarning,
+        clear: () => setWarningInput(""),
+      },
+      suspension: {
+        endpoint: "suspensions",
+        body: { details: suspensionInput.trim() },
+        valid: !!suspensionInput.trim(),
+        setSaving: setSavingSuspension,
+        clear: () => setSuspensionInput(""),
+      },
+      note: {
+        endpoint: "notes",
+        body: { body: noteInput.trim() },
+        valid: !!noteInput.trim(),
+        setSaving: setSavingNote,
+        clear: () => setNoteInput(""),
+      },
+    };
+
+    const config = configMap[type];
+    if (!config || !config.valid) return;
+
+    try {
+      config.setSaving(true);
+      setSelectedMemberError("");
+
+      const res = await fetch(
+        `${API_BASE}/api/workspace/members/${selectedMemberId}/${config.endpoint}`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(config.body),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || `Failed to add ${type}`);
+      }
+
+      setSelectedMemberProfile(data.member);
+      config.clear();
+
+      await Promise.all([loadMembers(), loadActivityOverview()]);
+    } catch (err) {
+      setSelectedMemberError(err.message || `Failed to add ${type}`);
+    } finally {
+      config.setSaving(false);
+    }
+  };
+
+  const saveWeeklyActivity = async () => {
+    if (!selectedMemberId) return;
+
+    try {
+      setSavingActivity(true);
+      setSelectedMemberError("");
+
+      const cleaned = weeklyEditor.map((day) => ({
+        label: day.label,
+        minutes: Math.max(0, Number(day.minutes || 0)),
+      }));
+
+      const res = await fetch(
+        `${API_BASE}/api/workspace/members/${selectedMemberId}/activity`,
+        {
+          method: "PUT",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            weeklyActivity: cleaned,
+          }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update weekly activity");
+      }
+
+      setSelectedMemberProfile(data.member);
+      setWeeklyEditor(
+        Array.isArray(data.member?.weeklyActivity) &&
+          data.member.weeklyActivity.length
+          ? data.member.weeklyActivity
+          : DEFAULT_WEEKLY_ACTIVITY
+      );
+
+      await Promise.all([loadMembers(), loadActivityOverview()]);
+    } catch (err) {
+      setSelectedMemberError(err.message || "Failed to update weekly activity");
+    } finally {
+      setSavingActivity(false);
     }
   };
 
@@ -264,190 +459,33 @@ export default function Dashboard() {
     });
   }, [members, memberSearch]);
 
-  const enrichedMembers = useMemo(() => {
-    return filteredMembers.map((member) => {
-      const weeklyActivity = member.weeklyActivity || createMockWeeklyActivity(member);
-      const totalWeeklyMinutes = sumMinutes(weeklyActivity);
-      const warnings = memberWarnings[member.userId] || [];
-      const suspensions = memberSuspensions[member.userId] || [];
-      const notes = memberNotes[member.userId] || [];
-
-      return {
-        ...member,
-        weeklyActivity,
-        totalWeeklyMinutes,
-        warnings,
-        suspensions,
-        notes,
-      };
-    });
-  }, [filteredMembers, memberWarnings, memberSuspensions, memberNotes]);
-
-  const allEnrichedMembers = useMemo(() => {
-    return members.map((member) => {
-      const weeklyActivity = member.weeklyActivity || createMockWeeklyActivity(member);
-      const totalWeeklyMinutes = sumMinutes(weeklyActivity);
-      const warnings = memberWarnings[member.userId] || [];
-      const suspensions = memberSuspensions[member.userId] || [];
-      const notes = memberNotes[member.userId] || [];
-
-      return {
-        ...member,
-        weeklyActivity,
-        totalWeeklyMinutes,
-        warnings,
-        suspensions,
-        notes,
-      };
-    });
-  }, [members, memberWarnings, memberSuspensions, memberNotes]);
-
-  const activityStats = useMemo(() => {
-    const baseMembers = allEnrichedMembers;
-    const totalMembers = baseMembers.length;
-    const totalMinutes = baseMembers.reduce(
-      (total, member) => total + Number(member.totalWeeklyMinutes || 0),
-      0
-    );
-    const activeMembers = baseMembers.filter(
-      (member) => Number(member.totalWeeklyMinutes || 0) > 0
-    ).length;
-    const avgMinutes = totalMembers ? Math.round(totalMinutes / totalMembers) : 0;
-    const targetMinutes = 30;
-    const onTrackCount = baseMembers.filter(
-      (member) => Number(member.totalWeeklyMinutes || 0) >= targetMinutes
-    ).length;
-    const quotaRate = totalMembers
-      ? Math.round((onTrackCount / totalMembers) * 100)
-      : 0;
-
-    const dailyLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const weekSeries = dailyLabels.map((label) => ({
-      label,
-      minutes: baseMembers.reduce((total, member) => {
-        const day = member.weeklyActivity?.find((entry) => entry.label === label);
-        return total + Number(day?.minutes || 0);
-      }, 0),
-    }));
-
-    const topMembers = [...baseMembers]
-      .sort((a, b) => b.totalWeeklyMinutes - a.totalWeeklyMinutes)
-      .slice(0, 5);
-
-    return {
-      totalMembers,
-      totalMinutes,
-      activeMembers,
-      avgMinutes,
-      onTrackCount,
-      quotaRate,
-      weekSeries,
-      topMembers,
-      targetMinutes,
-    };
-  }, [allEnrichedMembers]);
-
-  const selectedMemberDetails = useMemo(() => {
-    if (!selectedMember) return null;
-
-    const match = allEnrichedMembers.find(
-      (member) => String(member.userId) === String(selectedMember.userId)
-    );
-
-    return match || null;
-  }, [selectedMember, allEnrichedMembers]);
-
-  useEffect(() => {
-    if (!selectedMemberDetails) {
-      setWarningInput("");
-      setSuspensionInput("");
-      setNoteInput("");
-      return;
-    }
-
-    setWarningInput("");
-    setSuspensionInput("");
-    setNoteInput("");
-  }, [selectedMemberDetails?.userId]);
-
-  const handleOpenMember = (member) => {
-    setSelectedMember(member);
-  };
-
-  const handleCloseMember = () => {
-    setSelectedMember(null);
-  };
-
-  const addWarning = () => {
-    if (!selectedMemberDetails || !warningInput.trim()) return;
-
-    setMemberWarnings((prev) => {
-      const current = prev[selectedMemberDetails.userId] || [];
-      return {
-        ...prev,
-        [selectedMemberDetails.userId]: [
-          {
-            id: Date.now(),
-            reason: warningInput.trim(),
-            createdAt: new Date().toISOString(),
-          },
-          ...current,
-        ],
-      };
-    });
-
-    setWarningInput("");
-  };
-
-  const addSuspension = () => {
-    if (!selectedMemberDetails || !suspensionInput.trim()) return;
-
-    setMemberSuspensions((prev) => {
-      const current = prev[selectedMemberDetails.userId] || [];
-      return {
-        ...prev,
-        [selectedMemberDetails.userId]: [
-          {
-            id: Date.now(),
-            details: suspensionInput.trim(),
-            createdAt: new Date().toISOString(),
-          },
-          ...current,
-        ],
-      };
-    });
-
-    setSuspensionInput("");
-  };
-
-  const addNote = () => {
-    if (!selectedMemberDetails || !noteInput.trim()) return;
-
-    setMemberNotes((prev) => {
-      const current = prev[selectedMemberDetails.userId] || [];
-      return {
-        ...prev,
-        [selectedMemberDetails.userId]: [
-          {
-            id: Date.now(),
-            body: noteInput.trim(),
-            createdAt: new Date().toISOString(),
-          },
-          ...current,
-        ],
-      };
-    });
-
-    setNoteInput("");
-  };
-
   const permissions = workspaceAccess?.permissions || {};
   const canRefreshMembers = !!permissions.canRefreshMembers;
-  const availableTabs = DEFAULT_TABS;
+  const canManageMembers = !!permissions.canManageMembers;
+  const canManageActivity = !!permissions.canManageActivity;
 
+  const availableTabs = DEFAULT_TABS;
   const workspaceName = workspaceAccess?.workspace?.name || "Flourai Panel";
   const workspaceRoleLabel = workspaceAccess?.viewer?.roleLabel || "Connected";
   const lastMemberSync = workspaceAccess?.workspace?.lastMemberSync || "";
+
+  const activitySummary = activityOverview?.summary || {
+    totalMembers: members.length,
+    totalMinutes: 0,
+    activeMembers: 0,
+    averageMinutes: 0,
+    onTrackMembers: 0,
+    quotaRate: 0,
+    targetMinutes: 30,
+  };
+
+  const activityWeekly = Array.isArray(activityOverview?.weekly)
+    ? activityOverview.weekly
+    : DEFAULT_WEEKLY_ACTIVITY;
+
+  const activityTopMembers = Array.isArray(activityOverview?.topMembers)
+    ? activityOverview.topMembers
+    : [];
 
   const styles = createStyles({ isMobile, isTablet, sidebarOpen });
 
@@ -461,190 +499,266 @@ export default function Dashboard() {
         />
       )}
 
-      {selectedMemberDetails && (
+      {selectedMemberId && (
         <>
-          <div style={styles.memberDrawerOverlay} onClick={handleCloseMember} />
+          <div style={styles.memberDrawerOverlay} onClick={closeMemberDrawer} />
           <div style={styles.memberDrawer}>
             <div style={styles.memberDrawerHeader}>
               <div style={styles.memberDrawerHeaderLeft}>
                 <div style={styles.memberDrawerAvatar}>
-                  {selectedMemberDetails.avatar ? (
+                  {selectedMemberProfile?.avatar ? (
                     <img
-                      src={selectedMemberDetails.avatar}
-                      alt={`${selectedMemberDetails.displayName} avatar`}
+                      src={selectedMemberProfile.avatar}
+                      alt={`${selectedMemberProfile.displayName} avatar`}
                       style={styles.memberDrawerAvatarImg}
                     />
                   ) : (
-                    getInitials(selectedMemberDetails.displayName || "Member")
+                    getInitials(selectedMemberProfile?.displayName || "Member")
                   )}
                 </div>
 
                 <div style={{ minWidth: 0 }}>
                   <h2 style={styles.memberDrawerName}>
-                    {selectedMemberDetails.displayName}
+                    {selectedMemberProfile?.displayName || "Loading member..."}
                   </h2>
                   <p style={styles.memberDrawerUsername}>
-                    @{selectedMemberDetails.username}
+                    {selectedMemberProfile?.username
+                      ? `@${selectedMemberProfile.username}`
+                      : ""}
                   </p>
+
                   <div style={styles.memberDrawerBadgeRow}>
-                    <span style={styles.memberBadge}>
-                      {selectedMemberDetails.roleLabel ||
-                        selectedMemberDetails.roleName ||
-                        "Member"}
-                    </span>
+                    {selectedMemberProfile?.roleLabel && (
+                      <span style={styles.memberBadge}>
+                        {selectedMemberProfile.roleLabel}
+                      </span>
+                    )}
+
                     <span style={styles.memberBadgeSoft}>
-                      Weekly: {formatMinutes(selectedMemberDetails.totalWeeklyMinutes)}
+                      Weekly:{" "}
+                      {formatMinutes(selectedMemberProfile?.weeklyTotalMinutes || 0)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <button style={styles.closeDrawerButton} onClick={handleCloseMember}>
+              <button style={styles.closeDrawerButton} onClick={closeMemberDrawer}>
                 ✕
               </button>
             </div>
 
-            <div style={styles.memberDrawerGrid}>
-              <div style={styles.drawerSection}>
-                <p style={styles.label}>Profile</p>
-                <div style={styles.drawerStatGrid}>
-                  <div style={styles.drawerStatCard}>
-                    <span style={styles.drawerStatLabel}>Warnings</span>
-                    <strong style={styles.drawerStatValue}>
-                      {selectedMemberDetails.warnings.length}
-                    </strong>
-                  </div>
-                  <div style={styles.drawerStatCard}>
-                    <span style={styles.drawerStatLabel}>Suspensions</span>
-                    <strong style={styles.drawerStatValue}>
-                      {selectedMemberDetails.suspensions.length}
-                    </strong>
-                  </div>
-                  <div style={styles.drawerStatCard}>
-                    <span style={styles.drawerStatLabel}>Notes</span>
-                    <strong style={styles.drawerStatValue}>
-                      {selectedMemberDetails.notes.length}
-                    </strong>
-                  </div>
-                  <div style={styles.drawerStatCard}>
-                    <span style={styles.drawerStatLabel}>Weekly Total</span>
-                    <strong style={styles.drawerStatValue}>
-                      {formatMinutes(selectedMemberDetails.totalWeeklyMinutes)}
-                    </strong>
+            {selectedMemberError && (
+              <div style={{ ...styles.error, marginBottom: 16 }}>
+                {selectedMemberError}
+              </div>
+            )}
+
+            {selectedMemberLoading && !selectedMemberProfile ? (
+              <div style={styles.loading}>Loading member profile...</div>
+            ) : selectedMemberProfile ? (
+              <div style={styles.memberDrawerGrid}>
+                <div style={styles.drawerSection}>
+                  <p style={styles.label}>Profile</p>
+
+                  <div style={styles.drawerStatGrid}>
+                    <div style={styles.drawerStatCard}>
+                      <span style={styles.drawerStatLabel}>Warnings</span>
+                      <strong style={styles.drawerStatValue}>
+                        {selectedMemberProfile.warnings?.length || 0}
+                      </strong>
+                    </div>
+
+                    <div style={styles.drawerStatCard}>
+                      <span style={styles.drawerStatLabel}>Suspensions</span>
+                      <strong style={styles.drawerStatValue}>
+                        {selectedMemberProfile.suspensions?.length || 0}
+                      </strong>
+                    </div>
+
+                    <div style={styles.drawerStatCard}>
+                      <span style={styles.drawerStatLabel}>Notes</span>
+                      <strong style={styles.drawerStatValue}>
+                        {selectedMemberProfile.notes?.length || 0}
+                      </strong>
+                    </div>
+
+                    <div style={styles.drawerStatCard}>
+                      <span style={styles.drawerStatLabel}>Weekly Total</span>
+                      <strong style={styles.drawerStatValue}>
+                        {formatMinutes(selectedMemberProfile.weeklyTotalMinutes || 0)}
+                      </strong>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div style={styles.drawerSection}>
-                <p style={styles.label}>Weekly Activity</p>
-                <div style={styles.weeklyBars}>
-                  {selectedMemberDetails.weeklyActivity.map((day) => {
-                    const barHeight = clamp(day.minutes * 1.6, 14, 110);
-                    return (
-                      <div key={day.label} style={styles.weeklyBarWrap}>
-                        <div style={styles.weeklyBarTrack}>
-                          <div
-                            style={{
-                              ...styles.weeklyBarFill,
-                              height: `${barHeight}px`,
+                <div style={styles.drawerSection}>
+                  <p style={styles.label}>Weekly Activity</p>
+
+                  <div style={styles.weeklyBars}>
+                    {weeklyEditor.map((day, index) => {
+                      const barHeight = clamp(Number(day.minutes || 0) * 1.8, 10, 110);
+
+                      return (
+                        <div key={day.label} style={styles.weeklyBarWrap}>
+                          <div style={styles.weeklyBarTrack}>
+                            <div
+                              style={{
+                                ...styles.weeklyBarFill,
+                                height: `${barHeight}px`,
+                              }}
+                            />
+                          </div>
+
+                          <span style={styles.weeklyBarLabel}>{day.label}</span>
+
+                          <input
+                            type="number"
+                            min="0"
+                            value={day.minutes}
+                            onChange={(e) => {
+                              const next = [...weeklyEditor];
+                              next[index] = {
+                                ...next[index],
+                                minutes: Math.max(0, Number(e.target.value || 0)),
+                              };
+                              setWeeklyEditor(next);
                             }}
+                            style={styles.dayInput}
+                            disabled={!canManageActivity || savingActivity}
                           />
                         </div>
-                        <span style={styles.weeklyBarLabel}>{day.label}</span>
-                        <span style={styles.weeklyBarValue}>{day.minutes}m</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+                      );
+                    })}
+                  </div>
 
-              <div style={styles.drawerSection}>
-                <p style={styles.label}>Add Warning</p>
-                <textarea
-                  value={warningInput}
-                  onChange={(e) => setWarningInput(e.target.value)}
-                  placeholder="Enter a warning reason..."
-                  style={styles.drawerTextarea}
-                />
-                <button style={styles.primaryButton} onClick={addWarning}>
-                  Add Warning
-                </button>
-
-                <div style={styles.drawerList}>
-                  {selectedMemberDetails.warnings.length > 0 ? (
-                    selectedMemberDetails.warnings.map((item) => (
-                      <div key={item.id} style={styles.drawerListItem}>
-                        <strong style={styles.drawerListTitle}>Warning</strong>
-                        <p style={styles.drawerListText}>{item.reason}</p>
-                        <span style={styles.drawerListDate}>
-                          {new Date(item.createdAt).toLocaleString()}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <div style={styles.drawerEmpty}>No warnings yet.</div>
+                  {canManageActivity && (
+                    <button
+                      style={styles.primaryButton}
+                      onClick={saveWeeklyActivity}
+                      disabled={savingActivity}
+                    >
+                      {savingActivity ? "Saving..." : "Save Weekly Activity"}
+                    </button>
                   )}
                 </div>
-              </div>
 
-              <div style={styles.drawerSection}>
-                <p style={styles.label}>Add Suspension</p>
-                <textarea
-                  value={suspensionInput}
-                  onChange={(e) => setSuspensionInput(e.target.value)}
-                  placeholder="Enter suspension details..."
-                  style={styles.drawerTextarea}
-                />
-                <button style={styles.primaryButton} onClick={addSuspension}>
-                  Add Suspension
-                </button>
+                <div style={styles.drawerSection}>
+                  <p style={styles.label}>Add Warning</p>
 
-                <div style={styles.drawerList}>
-                  {selectedMemberDetails.suspensions.length > 0 ? (
-                    selectedMemberDetails.suspensions.map((item) => (
-                      <div key={item.id} style={styles.drawerListItem}>
-                        <strong style={styles.drawerListTitle}>Suspension</strong>
-                        <p style={styles.drawerListText}>{item.details}</p>
-                        <span style={styles.drawerListDate}>
-                          {new Date(item.createdAt).toLocaleString()}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <div style={styles.drawerEmpty}>No suspensions yet.</div>
+                  <textarea
+                    value={warningInput}
+                    onChange={(e) => setWarningInput(e.target.value)}
+                    placeholder="Enter a warning reason..."
+                    style={styles.drawerTextarea}
+                    disabled={!canManageMembers || savingWarning}
+                  />
+
+                  {canManageMembers && (
+                    <button
+                      style={styles.primaryButton}
+                      onClick={() => createMemberItem("warning")}
+                      disabled={savingWarning}
+                    >
+                      {savingWarning ? "Adding..." : "Add Warning"}
+                    </button>
                   )}
+
+                  <div style={styles.drawerList}>
+                    {selectedMemberProfile.warnings?.length > 0 ? (
+                      selectedMemberProfile.warnings.map((item) => (
+                        <div key={item.id} style={styles.drawerListItem}>
+                          <strong style={styles.drawerListTitle}>Warning</strong>
+                          <p style={styles.drawerListText}>{item.reason}</p>
+                          <span style={styles.drawerListDate}>
+                            {new Date(item.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={styles.drawerEmpty}>No warnings yet.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={styles.drawerSection}>
+                  <p style={styles.label}>Add Suspension</p>
+
+                  <textarea
+                    value={suspensionInput}
+                    onChange={(e) => setSuspensionInput(e.target.value)}
+                    placeholder="Enter suspension details..."
+                    style={styles.drawerTextarea}
+                    disabled={!canManageMembers || savingSuspension}
+                  />
+
+                  {canManageMembers && (
+                    <button
+                      style={styles.primaryButton}
+                      onClick={() => createMemberItem("suspension")}
+                      disabled={savingSuspension}
+                    >
+                      {savingSuspension ? "Adding..." : "Add Suspension"}
+                    </button>
+                  )}
+
+                  <div style={styles.drawerList}>
+                    {selectedMemberProfile.suspensions?.length > 0 ? (
+                      selectedMemberProfile.suspensions.map((item) => (
+                        <div key={item.id} style={styles.drawerListItem}>
+                          <strong style={styles.drawerListTitle}>Suspension</strong>
+                          <p style={styles.drawerListText}>{item.details}</p>
+                          <span style={styles.drawerListDate}>
+                            {new Date(item.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={styles.drawerEmpty}>No suspensions yet.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={styles.drawerSectionFull}>
+                  <p style={styles.label}>Staff Notes</p>
+
+                  <textarea
+                    value={noteInput}
+                    onChange={(e) => setNoteInput(e.target.value)}
+                    placeholder="Add a private staff note..."
+                    style={styles.drawerTextareaLarge}
+                    disabled={!canManageMembers || savingNote}
+                  />
+
+                  {canManageMembers && (
+                    <button
+                      style={styles.primaryButton}
+                      onClick={() => createMemberItem("note")}
+                      disabled={savingNote}
+                    >
+                      {savingNote ? "Saving..." : "Save Note"}
+                    </button>
+                  )}
+
+                  <div style={styles.drawerList}>
+                    {selectedMemberProfile.notes?.length > 0 ? (
+                      selectedMemberProfile.notes.map((item) => (
+                        <div key={item.id} style={styles.drawerListItem}>
+                          <strong style={styles.drawerListTitle}>Note</strong>
+                          <p style={styles.drawerListText}>{item.body}</p>
+                          <span style={styles.drawerListDate}>
+                            {new Date(item.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={styles.drawerEmpty}>No notes yet.</div>
+                    )}
+                  </div>
                 </div>
               </div>
-
-              <div style={styles.drawerSectionFull}>
-                <p style={styles.label}>Staff Notes</p>
-                <textarea
-                  value={noteInput}
-                  onChange={(e) => setNoteInput(e.target.value)}
-                  placeholder="Add a private staff note..."
-                  style={styles.drawerTextareaLarge}
-                />
-                <button style={styles.primaryButton} onClick={addNote}>
-                  Save Note
-                </button>
-
-                <div style={styles.drawerList}>
-                  {selectedMemberDetails.notes.length > 0 ? (
-                    selectedMemberDetails.notes.map((item) => (
-                      <div key={item.id} style={styles.drawerListItem}>
-                        <strong style={styles.drawerListTitle}>Note</strong>
-                        <p style={styles.drawerListText}>{item.body}</p>
-                        <span style={styles.drawerListDate}>
-                          {new Date(item.createdAt).toLocaleString()}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <div style={styles.drawerEmpty}>No notes yet.</div>
-                  )}
-                </div>
-              </div>
-            </div>
+            ) : (
+              <div style={styles.emptyState}>Unable to load this member.</div>
+            )}
           </div>
         </>
       )}
@@ -767,9 +881,9 @@ export default function Dashboard() {
 
               <div style={styles.card}>
                 <p style={styles.label}>Activity</p>
-                <h2 style={styles.stat}>{formatMinutes(activityStats.totalMinutes)}</h2>
+                <h2 style={styles.stat}>{formatMinutes(activitySummary.totalMinutes)}</h2>
                 <p style={styles.sub}>
-                  Total tracked weekly activity across synced members.
+                  Tracked weekly activity across synced directory members.
                 </p>
               </div>
 
@@ -789,8 +903,8 @@ export default function Dashboard() {
                 <p style={styles.label}>System Status</p>
                 <h3 style={styles.bottomTitle}>Workspace is connected 🌿</h3>
                 <p style={styles.sub}>
-                  This panel is now structured for member moderation, activity
-                  visibility, session planning, and workspace configuration.
+                  This panel now supports member profile records, activity
+                  totals, warnings, suspensions, and notes.
                 </p>
               </div>
 
@@ -799,15 +913,17 @@ export default function Dashboard() {
                 <div style={styles.quickInfoGrid}>
                   <div style={styles.quickInfoPill}>
                     <span>Active Members</span>
-                    <strong>{activityStats.activeMembers}</strong>
+                    <strong>{activitySummary.activeMembers}</strong>
                   </div>
+
                   <div style={styles.quickInfoPill}>
                     <span>Avg Weekly</span>
-                    <strong>{formatMinutes(activityStats.avgMinutes)}</strong>
+                    <strong>{formatMinutes(activitySummary.averageMinutes)}</strong>
                   </div>
+
                   <div style={styles.quickInfoPill}>
                     <span>On Track</span>
-                    <strong>{activityStats.quotaRate}%</strong>
+                    <strong>{activitySummary.quotaRate}%</strong>
                   </div>
                 </div>
               </div>
@@ -821,114 +937,139 @@ export default function Dashboard() {
               <p style={styles.label}>Activity</p>
               <h3 style={styles.bottomTitle}>Workspace activity overview</h3>
               <p style={styles.sub}>
-                View tracked totals, weekly trends, top performers, and quota progress.
+                View tracked totals, weekly trends, top performers, and quota
+                progress.
               </p>
             </div>
 
-            <div style={styles.activityTopGrid}>
-              <div style={styles.statCardEnhanced}>
-                <span style={styles.enhancedStatLabel}>Total Tracked</span>
-                <strong style={styles.enhancedStatValue}>
-                  {formatMinutes(activityStats.totalMinutes)}
-                </strong>
-                <small style={styles.enhancedStatSub}>All synced members this week</small>
-              </div>
+            {activityError && <div style={styles.error}>{activityError}</div>}
 
-              <div style={styles.statCardEnhanced}>
-                <span style={styles.enhancedStatLabel}>Active Members</span>
-                <strong style={styles.enhancedStatValue}>
-                  {activityStats.activeMembers}
-                </strong>
-                <small style={styles.enhancedStatSub}>Members with logged activity</small>
-              </div>
+            {activityLoading ? (
+              <div style={styles.loading}>Loading activity overview...</div>
+            ) : (
+              <>
+                <div style={styles.activityTopGrid}>
+                  <div style={styles.statCardEnhanced}>
+                    <span style={styles.enhancedStatLabel}>Total Tracked</span>
+                    <strong style={styles.enhancedStatValue}>
+                      {formatMinutes(activitySummary.totalMinutes)}
+                    </strong>
+                    <small style={styles.enhancedStatSub}>
+                      All synced members this week
+                    </small>
+                  </div>
 
-              <div style={styles.statCardEnhanced}>
-                <span style={styles.enhancedStatLabel}>Weekly Average</span>
-                <strong style={styles.enhancedStatValue}>
-                  {formatMinutes(activityStats.avgMinutes)}
-                </strong>
-                <small style={styles.enhancedStatSub}>Average per synced member</small>
-              </div>
+                  <div style={styles.statCardEnhanced}>
+                    <span style={styles.enhancedStatLabel}>Active Members</span>
+                    <strong style={styles.enhancedStatValue}>
+                      {activitySummary.activeMembers}
+                    </strong>
+                    <small style={styles.enhancedStatSub}>
+                      Members with logged activity
+                    </small>
+                  </div>
 
-              <div style={styles.statCardEnhanced}>
-                <span style={styles.enhancedStatLabel}>Quota Completion</span>
-                <strong style={styles.enhancedStatValue}>
-                  {activityStats.quotaRate}%
-                </strong>
-                <small style={styles.enhancedStatSub}>
-                  Members at {activityStats.targetMinutes}m+
-                </small>
-              </div>
-            </div>
+                  <div style={styles.statCardEnhanced}>
+                    <span style={styles.enhancedStatLabel}>Weekly Average</span>
+                    <strong style={styles.enhancedStatValue}>
+                      {formatMinutes(activitySummary.averageMinutes)}
+                    </strong>
+                    <small style={styles.enhancedStatSub}>
+                      Average per synced member
+                    </small>
+                  </div>
 
-            <div style={styles.activityBodyGrid}>
-              <div style={styles.activityChartCard}>
-                <p style={styles.label}>Weekly Trend</p>
-                <h3 style={styles.sectionTitle}>Group activity this week</h3>
-                <div style={styles.activityChartBars}>
-                  {activityStats.weekSeries.map((day) => {
-                    const barHeight = clamp(day.minutes * 0.7, 18, 170);
-                    return (
-                      <div key={day.label} style={styles.activityChartBarItem}>
-                        <span style={styles.activityChartValue}>{day.minutes}m</span>
-                        <div style={styles.activityChartTrack}>
-                          <div
-                            style={{
-                              ...styles.activityChartFill,
-                              height: `${barHeight}px`,
-                            }}
-                          />
-                        </div>
-                        <span style={styles.activityChartLabel}>{day.label}</span>
-                      </div>
-                    );
-                  })}
+                  <div style={styles.statCardEnhanced}>
+                    <span style={styles.enhancedStatLabel}>Quota Completion</span>
+                    <strong style={styles.enhancedStatValue}>
+                      {activitySummary.quotaRate}%
+                    </strong>
+                    <small style={styles.enhancedStatSub}>
+                      Members at {activitySummary.targetMinutes}m+
+                    </small>
+                  </div>
                 </div>
-              </div>
 
-              <div style={styles.activitySideCard}>
-                <p style={styles.label}>Top Performers</p>
-                <h3 style={styles.sectionTitle}>Most active members</h3>
-                <div style={styles.topList}>
-                  {activityStats.topMembers.length > 0 ? (
-                    activityStats.topMembers.map((member, index) => (
-                      <div
-                        key={member.userId}
-                        style={styles.topListItem}
-                        onClick={() => handleOpenMember(member)}
-                      >
-                        <div style={styles.topListLeft}>
-                          <div style={styles.topRank}>#{index + 1}</div>
-                          <div style={styles.topAvatar}>
-                            {member.avatar ? (
-                              <img
-                                src={member.avatar}
-                                alt={member.displayName}
-                                style={styles.topAvatarImg}
+                <div style={styles.activityBodyGrid}>
+                  <div style={styles.activityChartCard}>
+                    <p style={styles.label}>Weekly Trend</p>
+                    <h3 style={styles.sectionTitle}>Group activity this week</h3>
+
+                    <div style={styles.activityChartBars}>
+                      {activityWeekly.map((day) => {
+                        const barHeight = clamp(Number(day.minutes || 0) * 0.8, 18, 170);
+
+                        return (
+                          <div key={day.label} style={styles.activityChartBarItem}>
+                            <span style={styles.activityChartValue}>
+                              {day.minutes}m
+                            </span>
+                            <div style={styles.activityChartTrack}>
+                              <div
+                                style={{
+                                  ...styles.activityChartFill,
+                                  height: `${barHeight}px`,
+                                }}
                               />
-                            ) : (
-                              getInitials(member.displayName || "M")
-                            )}
+                            </div>
+                            <span style={styles.activityChartLabel}>{day.label}</span>
                           </div>
-                          <div style={{ minWidth: 0 }}>
-                            <strong style={styles.topName}>{member.displayName}</strong>
-                            <p style={styles.topMeta}>
-                              @{member.username} •{" "}
-                              {member.roleLabel || member.roleName || "Member"}
-                            </p>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div style={styles.activitySideCard}>
+                    <p style={styles.label}>Top Performers</p>
+                    <h3 style={styles.sectionTitle}>Most active members</h3>
+
+                    <div style={styles.topList}>
+                      {activityTopMembers.length > 0 ? (
+                        activityTopMembers.map((member, index) => (
+                          <div
+                            key={member.userId}
+                            style={styles.topListItem}
+                            onClick={() => loadMemberProfile(member.userId)}
+                          >
+                            <div style={styles.topListLeft}>
+                              <div style={styles.topRank}>#{index + 1}</div>
+
+                              <div style={styles.topAvatar}>
+                                {member.avatar ? (
+                                  <img
+                                    src={member.avatar}
+                                    alt={member.displayName}
+                                    style={styles.topAvatarImg}
+                                  />
+                                ) : (
+                                  getInitials(member.displayName || "M")
+                                )}
+                              </div>
+
+                              <div style={{ minWidth: 0 }}>
+                                <strong style={styles.topName}>
+                                  {member.displayName}
+                                </strong>
+                                <p style={styles.topMeta}>
+                                  @{member.username} •{" "}
+                                  {member.roleLabel || member.roleName || "Member"}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div style={styles.topTime}>
+                              {formatMinutes(member.weeklyTotalMinutes)}
+                            </div>
                           </div>
-                        </div>
-                        <div style={styles.topTime}>
-                          {formatMinutes(member.totalWeeklyMinutes)}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div style={styles.emptyState}>No activity data yet.</div>
-                  )}
+                        ))
+                      ) : (
+                        <div style={styles.emptyState}>No activity data yet.</div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         )}
 
@@ -965,7 +1106,7 @@ export default function Dashboard() {
               <div style={styles.summaryCard}>
                 <p style={styles.label}>Total Members</p>
                 <h2 style={styles.stat}>
-                  {membersLoading ? "..." : enrichedMembers.length}
+                  {membersLoading ? "..." : filteredMembers.length}
                 </h2>
                 <p style={styles.sub}>Showing synced directory members</p>
               </div>
@@ -983,13 +1124,13 @@ export default function Dashboard() {
 
             {membersLoading ? (
               <div style={styles.loading}>Loading members...</div>
-            ) : enrichedMembers.length > 0 ? (
+            ) : filteredMembers.length > 0 ? (
               <div style={styles.membersGrid}>
-                {enrichedMembers.map((member) => (
+                {filteredMembers.map((member) => (
                   <div
                     key={member.userId}
                     style={styles.memberCardClickable}
-                    onClick={() => handleOpenMember(member)}
+                    onClick={() => loadMemberProfile(member.userId)}
                   >
                     <div style={styles.memberGlow} />
 
@@ -1021,7 +1162,7 @@ export default function Dashboard() {
                         )}
 
                         <span style={styles.memberBadgeSoft}>
-                          {formatMinutes(member.totalWeeklyMinutes)} this week
+                          {formatMinutes(member.weeklyTotalMinutes || 0)} this week
                         </span>
                       </div>
                     </div>
@@ -1042,7 +1183,7 @@ export default function Dashboard() {
               <p style={styles.label}>Sessions</p>
               <h3 style={styles.bottomTitle}>Training and session management</h3>
               <p style={styles.sub}>
-                This section is ready for scheduled trainings, host claims, attendance,
+                This section is ready for trainings, host claims, attendance,
                 and session history.
               </p>
             </div>
@@ -1051,15 +1192,18 @@ export default function Dashboard() {
               <div style={styles.sessionCard}>
                 <p style={styles.label}>Upcoming</p>
                 <h3 style={styles.sectionTitle}>Next scheduled sessions</h3>
+
                 <div style={styles.sessionList}>
                   <div style={styles.sessionListItem}>
                     <strong>Orientation Training</strong>
                     <span>Today • 7:00 PM</span>
                   </div>
+
                   <div style={styles.sessionListItem}>
                     <strong>Staff Development</strong>
                     <span>Tomorrow • 6:30 PM</span>
                   </div>
+
                   <div style={styles.sessionListItem}>
                     <strong>Leadership Review</strong>
                     <span>Friday • 8:00 PM</span>
@@ -1070,6 +1214,7 @@ export default function Dashboard() {
               <div style={styles.sessionCard}>
                 <p style={styles.label}>Status</p>
                 <h3 style={styles.sectionTitle}>Session controls</h3>
+
                 <div style={styles.settingsList}>
                   <div style={styles.settingRow}>
                     <div>
@@ -1112,33 +1257,40 @@ export default function Dashboard() {
               <p style={styles.label}>Settings</p>
               <h3 style={styles.bottomTitle}>Workspace configuration</h3>
               <p style={styles.sub}>
-                Manage directory behavior, moderation tools, sessions, and activity
-                visibility from one place.
+                Manage directory behavior, moderation tools, sessions, and
+                activity visibility from one place.
               </p>
             </div>
 
             <div style={styles.settingsGrid}>
               <div style={styles.settingsCard}>
                 <p style={styles.label}>Moderation</p>
+
                 <div style={styles.settingsList}>
                   <div style={styles.settingRow}>
                     <div>
                       <strong style={styles.settingTitle}>Warnings system</strong>
                       <p style={styles.settingSub}>
-                        Enable warning records inside member profiles.
+                        Warning records inside member profiles.
                       </p>
                     </div>
-                    <div style={styles.toggleOn}>Enabled</div>
+                    <div style={styles.toggleOn}>
+                      {canManageMembers ? "Enabled" : "View Only"}
+                    </div>
                   </div>
 
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>Suspension records</strong>
+                      <strong style={styles.settingTitle}>
+                        Suspension records
+                      </strong>
                       <p style={styles.settingSub}>
                         Save suspension history on each user.
                       </p>
                     </div>
-                    <div style={styles.toggleOn}>Enabled</div>
+                    <div style={styles.toggleOn}>
+                      {canManageMembers ? "Enabled" : "View Only"}
+                    </div>
                   </div>
 
                   <div style={styles.settingRow}>
@@ -1148,17 +1300,22 @@ export default function Dashboard() {
                         Keep internal notes on members.
                       </p>
                     </div>
-                    <div style={styles.toggleOn}>Enabled</div>
+                    <div style={styles.toggleOn}>
+                      {canManageMembers ? "Enabled" : "View Only"}
+                    </div>
                   </div>
                 </div>
               </div>
 
               <div style={styles.settingsCard}>
                 <p style={styles.label}>Workspace</p>
+
                 <div style={styles.settingsList}>
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>Auto refresh members</strong>
+                      <strong style={styles.settingTitle}>
+                        Auto refresh members
+                      </strong>
                       <p style={styles.settingSub}>
                         Refresh synced member directory on demand.
                       </p>
@@ -1172,15 +1329,20 @@ export default function Dashboard() {
                     <div>
                       <strong style={styles.settingTitle}>Activity quotas</strong>
                       <p style={styles.settingSub}>
-                        Weekly target currently set to 30 minutes.
+                        Weekly target currently set to{" "}
+                        {activitySummary.targetMinutes || 30} minutes.
                       </p>
                     </div>
-                    <div style={styles.toggleOn}>30m</div>
+                    <div style={styles.toggleOn}>
+                      {activitySummary.targetMinutes || 30}m
+                    </div>
                   </div>
 
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>Member sync status</strong>
+                      <strong style={styles.settingTitle}>
+                        Member sync status
+                      </strong>
                       <p style={styles.settingSub}>
                         View last successful workspace sync.
                       </p>
@@ -2332,7 +2494,7 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       gridTemplateColumns: "repeat(7, 1fr)",
       gap: "10px",
       alignItems: "end",
-      minHeight: "180px",
+      minHeight: "220px",
     },
 
     weeklyBarWrap: {
@@ -2369,10 +2531,16 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       fontWeight: 700,
     },
 
-    weeklyBarValue: {
-      fontSize: "11px",
-      color: "#5b7467",
-      fontWeight: 700,
+    dayInput: {
+      width: "56px",
+      padding: "8px 6px",
+      textAlign: "center",
+      borderRadius: "12px",
+      border: "1px solid rgba(47,93,70,0.12)",
+      background: "#fff",
+      color: "#203229",
+      fontSize: "12px",
+      outline: "none",
     },
 
     drawerTextarea: {
