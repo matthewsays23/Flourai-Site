@@ -91,11 +91,11 @@ export default function Dashboard() {
   const [warningInput, setWarningInput] = useState("");
   const [suspensionInput, setSuspensionInput] = useState("");
   const [noteInput, setNoteInput] = useState("");
-  const [weeklyEditor, setWeeklyEditor] = useState(DEFAULT_WEEKLY_ACTIVITY);
+ const [deletingItemId, setDeletingItemId] = useState("");
   const [savingWarning, setSavingWarning] = useState(false);
   const [savingSuspension, setSavingSuspension] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
-  const [savingActivity, setSavingActivity] = useState(false);
+
 
   useEffect(() => {
     document.body.style.margin = "0";
@@ -288,50 +288,44 @@ export default function Dashboard() {
   };
 
   const loadMemberProfile = async (userId) => {
-    try {
-      setSelectedMemberLoading(true);
-      setSelectedMemberError("");
-
-      const res = await fetch(
-        `${API_BASE}/api/workspace/members/${userId}/profile`,
-        {
-          credentials: "include",
-        }
-      );
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to load member profile");
-      }
-
-      setSelectedMemberId(userId);
-      setSelectedMemberProfile(data.member);
-      setWeeklyEditor(
-        Array.isArray(data.member?.weeklyActivity) &&
-          data.member.weeklyActivity.length
-          ? data.member.weeklyActivity
-          : DEFAULT_WEEKLY_ACTIVITY
-      );
-      setWarningInput("");
-      setSuspensionInput("");
-      setNoteInput("");
-    } catch (err) {
-      setSelectedMemberError(err.message || "Failed to load member profile");
-    } finally {
-      setSelectedMemberLoading(false);
-    }
-  };
-
-  const closeMemberDrawer = () => {
-    setSelectedMemberId(null);
-    setSelectedMemberProfile(null);
+  try {
+    setSelectedMemberLoading(true);
     setSelectedMemberError("");
+
+    const res = await fetch(
+      `${API_BASE}/api/workspace/members/${userId}/profile`,
+      {
+        credentials: "include",
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to load member profile");
+    }
+
+    setSelectedMemberId(userId);
+    setSelectedMemberProfile(data.member);
     setWarningInput("");
     setSuspensionInput("");
     setNoteInput("");
-    setWeeklyEditor(DEFAULT_WEEKLY_ACTIVITY);
-  };
+  } catch (err) {
+    setSelectedMemberError(err.message || "Failed to load member profile");
+  } finally {
+    setSelectedMemberLoading(false);
+  }
+};
+
+ const closeMemberDrawer = () => {
+  setSelectedMemberId(null);
+  setSelectedMemberProfile(null);
+  setSelectedMemberError("");
+  setWarningInput("");
+  setSuspensionInput("");
+  setNoteInput("");
+  setDeletingItemId("");
+};
 
   const createMemberItem = async (type) => {
     if (!selectedMemberId) return;
@@ -396,53 +390,54 @@ export default function Dashboard() {
     }
   };
 
-  const saveWeeklyActivity = async () => {
-    if (!selectedMemberId) return;
+  const deleteMemberItem = async (type, itemId) => {
+  if (!selectedMemberId || !itemId) return;
 
-    try {
-      setSavingActivity(true);
-      setSelectedMemberError("");
-
-      const cleaned = weeklyEditor.map((day) => ({
-        label: day.label,
-        minutes: Math.max(0, Number(day.minutes || 0)),
-      }));
-
-      const res = await fetch(
-        `${API_BASE}/api/workspace/members/${selectedMemberId}/activity`,
-        {
-          method: "PUT",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            weeklyActivity: cleaned,
-          }),
-        }
-      );
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to update weekly activity");
-      }
-
-      setSelectedMemberProfile(data.member);
-      setWeeklyEditor(
-        Array.isArray(data.member?.weeklyActivity) &&
-          data.member.weeklyActivity.length
-          ? data.member.weeklyActivity
-          : DEFAULT_WEEKLY_ACTIVITY
-      );
-
-      await Promise.all([loadMembers(), loadActivityOverview()]);
-    } catch (err) {
-      setSelectedMemberError(err.message || "Failed to update weekly activity");
-    } finally {
-      setSavingActivity(false);
-    }
+  const configMap = {
+    warning: {
+      endpoint: `warnings/${itemId}`,
+      errorText: "Failed to delete warning",
+    },
+    suspension: {
+      endpoint: `suspensions/${itemId}`,
+      errorText: "Failed to delete suspension",
+    },
+    note: {
+      endpoint: `notes/${itemId}`,
+      errorText: "Failed to delete note",
+    },
   };
+
+  const config = configMap[type];
+  if (!config) return;
+
+  try {
+    setDeletingItemId(itemId);
+    setSelectedMemberError("");
+
+    const res = await fetch(
+      `${API_BASE}/api/workspace/members/${selectedMemberId}/${config.endpoint}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || config.errorText);
+    }
+
+    setSelectedMemberProfile(data.member);
+
+    await Promise.all([loadMembers(), loadActivityOverview()]);
+  } catch (err) {
+    setSelectedMemberError(err.message || config.errorText);
+  } finally {
+    setDeletingItemId("");
+  }
+};
 
   const filteredMembers = useMemo(() => {
     const query = memberSearch.trim().toLowerCase();
@@ -462,7 +457,6 @@ export default function Dashboard() {
   const permissions = workspaceAccess?.permissions || {};
   const canRefreshMembers = !!permissions.canRefreshMembers;
   const canManageMembers = !!permissions.canManageMembers;
-  const canManageActivity = !!permissions.canManageActivity;
 
   const availableTabs = DEFAULT_TABS;
   const workspaceName = workspaceAccess?.workspace?.name || "Flourai Panel";
@@ -500,268 +494,290 @@ export default function Dashboard() {
       )}
 
       {selectedMemberId && (
-        <>
-          <div style={styles.memberDrawerOverlay} onClick={closeMemberDrawer} />
-          <div style={styles.memberDrawer}>
-            <div style={styles.memberDrawerHeader}>
-              <div style={styles.memberDrawerHeaderLeft}>
-                <div style={styles.memberDrawerAvatar}>
-                  {selectedMemberProfile?.avatar ? (
-                    <img
-                      src={selectedMemberProfile.avatar}
-                      alt={`${selectedMemberProfile.displayName} avatar`}
-                      style={styles.memberDrawerAvatarImg}
-                    />
-                  ) : (
-                    getInitials(selectedMemberProfile?.displayName || "Member")
-                  )}
-                </div>
-
-                <div style={{ minWidth: 0 }}>
-                  <h2 style={styles.memberDrawerName}>
-                    {selectedMemberProfile?.displayName || "Loading member..."}
-                  </h2>
-                  <p style={styles.memberDrawerUsername}>
-                    {selectedMemberProfile?.username
-                      ? `@${selectedMemberProfile.username}`
-                      : ""}
-                  </p>
-
-                  <div style={styles.memberDrawerBadgeRow}>
-                    {selectedMemberProfile?.roleLabel && (
-                      <span style={styles.memberBadge}>
-                        {selectedMemberProfile.roleLabel}
-                      </span>
-                    )}
-
-                    <span style={styles.memberBadgeSoft}>
-                      Weekly:{" "}
-                      {formatMinutes(selectedMemberProfile?.weeklyTotalMinutes || 0)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <button style={styles.closeDrawerButton} onClick={closeMemberDrawer}>
-                ✕
-              </button>
-            </div>
-
-            {selectedMemberError && (
-              <div style={{ ...styles.error, marginBottom: 16 }}>
-                {selectedMemberError}
-              </div>
-            )}
-
-            {selectedMemberLoading && !selectedMemberProfile ? (
-              <div style={styles.loading}>Loading member profile...</div>
-            ) : selectedMemberProfile ? (
-              <div style={styles.memberDrawerGrid}>
-                <div style={styles.drawerSection}>
-                  <p style={styles.label}>Profile</p>
-
-                  <div style={styles.drawerStatGrid}>
-                    <div style={styles.drawerStatCard}>
-                      <span style={styles.drawerStatLabel}>Warnings</span>
-                      <strong style={styles.drawerStatValue}>
-                        {selectedMemberProfile.warnings?.length || 0}
-                      </strong>
-                    </div>
-
-                    <div style={styles.drawerStatCard}>
-                      <span style={styles.drawerStatLabel}>Suspensions</span>
-                      <strong style={styles.drawerStatValue}>
-                        {selectedMemberProfile.suspensions?.length || 0}
-                      </strong>
-                    </div>
-
-                    <div style={styles.drawerStatCard}>
-                      <span style={styles.drawerStatLabel}>Notes</span>
-                      <strong style={styles.drawerStatValue}>
-                        {selectedMemberProfile.notes?.length || 0}
-                      </strong>
-                    </div>
-
-                    <div style={styles.drawerStatCard}>
-                      <span style={styles.drawerStatLabel}>Weekly Total</span>
-                      <strong style={styles.drawerStatValue}>
-                        {formatMinutes(selectedMemberProfile.weeklyTotalMinutes || 0)}
-                      </strong>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={styles.drawerSection}>
-                  <p style={styles.label}>Weekly Activity</p>
-
-                  <div style={styles.weeklyBars}>
-                    {weeklyEditor.map((day, index) => {
-                      const barHeight = clamp(Number(day.minutes || 0) * 1.8, 10, 110);
-
-                      return (
-                        <div key={day.label} style={styles.weeklyBarWrap}>
-                          <div style={styles.weeklyBarTrack}>
-                            <div
-                              style={{
-                                ...styles.weeklyBarFill,
-                                height: `${barHeight}px`,
-                              }}
-                            />
-                          </div>
-
-                          <span style={styles.weeklyBarLabel}>{day.label}</span>
-
-                          <input
-                            type="number"
-                            min="0"
-                            value={day.minutes}
-                            onChange={(e) => {
-                              const next = [...weeklyEditor];
-                              next[index] = {
-                                ...next[index],
-                                minutes: Math.max(0, Number(e.target.value || 0)),
-                              };
-                              setWeeklyEditor(next);
-                            }}
-                            style={styles.dayInput}
-                            disabled={!canManageActivity || savingActivity}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {canManageActivity && (
-                    <button
-                      style={styles.primaryButton}
-                      onClick={saveWeeklyActivity}
-                      disabled={savingActivity}
-                    >
-                      {savingActivity ? "Saving..." : "Save Weekly Activity"}
-                    </button>
-                  )}
-                </div>
-
-                <div style={styles.drawerSection}>
-                  <p style={styles.label}>Add Warning</p>
-
-                  <textarea
-                    value={warningInput}
-                    onChange={(e) => setWarningInput(e.target.value)}
-                    placeholder="Enter a warning reason..."
-                    style={styles.drawerTextarea}
-                    disabled={!canManageMembers || savingWarning}
-                  />
-
-                  {canManageMembers && (
-                    <button
-                      style={styles.primaryButton}
-                      onClick={() => createMemberItem("warning")}
-                      disabled={savingWarning}
-                    >
-                      {savingWarning ? "Adding..." : "Add Warning"}
-                    </button>
-                  )}
-
-                  <div style={styles.drawerList}>
-                    {selectedMemberProfile.warnings?.length > 0 ? (
-                      selectedMemberProfile.warnings.map((item) => (
-                        <div key={item.id} style={styles.drawerListItem}>
-                          <strong style={styles.drawerListTitle}>Warning</strong>
-                          <p style={styles.drawerListText}>{item.reason}</p>
-                          <span style={styles.drawerListDate}>
-                            {new Date(item.createdAt).toLocaleString()}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div style={styles.drawerEmpty}>No warnings yet.</div>
-                    )}
-                  </div>
-                </div>
-
-                <div style={styles.drawerSection}>
-                  <p style={styles.label}>Add Suspension</p>
-
-                  <textarea
-                    value={suspensionInput}
-                    onChange={(e) => setSuspensionInput(e.target.value)}
-                    placeholder="Enter suspension details..."
-                    style={styles.drawerTextarea}
-                    disabled={!canManageMembers || savingSuspension}
-                  />
-
-                  {canManageMembers && (
-                    <button
-                      style={styles.primaryButton}
-                      onClick={() => createMemberItem("suspension")}
-                      disabled={savingSuspension}
-                    >
-                      {savingSuspension ? "Adding..." : "Add Suspension"}
-                    </button>
-                  )}
-
-                  <div style={styles.drawerList}>
-                    {selectedMemberProfile.suspensions?.length > 0 ? (
-                      selectedMemberProfile.suspensions.map((item) => (
-                        <div key={item.id} style={styles.drawerListItem}>
-                          <strong style={styles.drawerListTitle}>Suspension</strong>
-                          <p style={styles.drawerListText}>{item.details}</p>
-                          <span style={styles.drawerListDate}>
-                            {new Date(item.createdAt).toLocaleString()}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div style={styles.drawerEmpty}>No suspensions yet.</div>
-                    )}
-                  </div>
-                </div>
-
-                <div style={styles.drawerSectionFull}>
-                  <p style={styles.label}>Staff Notes</p>
-
-                  <textarea
-                    value={noteInput}
-                    onChange={(e) => setNoteInput(e.target.value)}
-                    placeholder="Add a private staff note..."
-                    style={styles.drawerTextareaLarge}
-                    disabled={!canManageMembers || savingNote}
-                  />
-
-                  {canManageMembers && (
-                    <button
-                      style={styles.primaryButton}
-                      onClick={() => createMemberItem("note")}
-                      disabled={savingNote}
-                    >
-                      {savingNote ? "Saving..." : "Save Note"}
-                    </button>
-                  )}
-
-                  <div style={styles.drawerList}>
-                    {selectedMemberProfile.notes?.length > 0 ? (
-                      selectedMemberProfile.notes.map((item) => (
-                        <div key={item.id} style={styles.drawerListItem}>
-                          <strong style={styles.drawerListTitle}>Note</strong>
-                          <p style={styles.drawerListText}>{item.body}</p>
-                          <span style={styles.drawerListDate}>
-                            {new Date(item.createdAt).toLocaleString()}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div style={styles.drawerEmpty}>No notes yet.</div>
-                    )}
-                  </div>
-                </div>
-              </div>
+  <>
+    <div style={styles.memberDrawerOverlay} onClick={closeMemberDrawer} />
+    <div style={styles.memberDrawer}>
+      <div style={styles.memberDrawerHeader}>
+        <div style={styles.memberDrawerHeaderLeft}>
+          <div style={styles.memberDrawerAvatar}>
+            {selectedMemberProfile?.avatar ? (
+              <img
+                src={selectedMemberProfile.avatar}
+                alt={`${selectedMemberProfile.displayName} avatar`}
+                style={styles.memberDrawerAvatarImg}
+              />
             ) : (
-              <div style={styles.emptyState}>Unable to load this member.</div>
+              getInitials(selectedMemberProfile?.displayName || "Member")
             )}
           </div>
-        </>
+
+          <div style={{ minWidth: 0 }}>
+            <h2 style={styles.memberDrawerName}>
+              {selectedMemberProfile?.displayName || "Loading member..."}
+            </h2>
+            <p style={styles.memberDrawerUsername}>
+              {selectedMemberProfile?.username
+                ? `@${selectedMemberProfile.username}`
+                : ""}
+            </p>
+
+            <div style={styles.memberDrawerBadgeRow}>
+              {selectedMemberProfile?.roleLabel && (
+                <span style={styles.memberBadge}>
+                  {selectedMemberProfile.roleLabel}
+                </span>
+              )}
+
+              <span style={styles.memberBadgeSoft}>
+                Weekly:{" "}
+                {formatMinutes(selectedMemberProfile?.weeklyTotalMinutes || 0)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <button style={styles.closeDrawerButton} onClick={closeMemberDrawer}>
+          ✕
+        </button>
+      </div>
+
+      {selectedMemberError && (
+        <div style={{ ...styles.error, marginBottom: 16 }}>
+          {selectedMemberError}
+        </div>
       )}
+
+      {selectedMemberLoading && !selectedMemberProfile ? (
+        <div style={styles.loading}>Loading member profile...</div>
+      ) : selectedMemberProfile ? (
+        <div style={styles.memberDrawerGrid}>
+          <div style={styles.drawerSection}>
+            <p style={styles.label}>Profile</p>
+
+            <div style={styles.drawerStatGrid}>
+              <div style={styles.drawerStatCard}>
+                <span style={styles.drawerStatLabel}>Warnings</span>
+                <strong style={styles.drawerStatValue}>
+                  {selectedMemberProfile.warnings?.length || 0}
+                </strong>
+              </div>
+
+              <div style={styles.drawerStatCard}>
+                <span style={styles.drawerStatLabel}>Suspensions</span>
+                <strong style={styles.drawerStatValue}>
+                  {selectedMemberProfile.suspensions?.length || 0}
+                </strong>
+              </div>
+
+              <div style={styles.drawerStatCard}>
+                <span style={styles.drawerStatLabel}>Notes</span>
+                <strong style={styles.drawerStatValue}>
+                  {selectedMemberProfile.notes?.length || 0}
+                </strong>
+              </div>
+
+              <div style={styles.drawerStatCard}>
+                <span style={styles.drawerStatLabel}>Weekly Total</span>
+                <strong style={styles.drawerStatValue}>
+                  {formatMinutes(selectedMemberProfile.weeklyTotalMinutes || 0)}
+                </strong>
+              </div>
+            </div>
+          </div>
+
+          <div style={styles.drawerSection}>
+            <p style={styles.label}>Weekly Activity</p>
+
+            <div style={styles.weeklyBars}>
+              {(selectedMemberProfile.weeklyActivity || DEFAULT_WEEKLY_ACTIVITY).map(
+                (day) => {
+                  const barHeight = clamp(
+                    Number(day.minutes || 0) * 1.8,
+                    10,
+                    110
+                  );
+
+                  return (
+                    <div key={day.label} style={styles.weeklyBarWrap}>
+                      <div style={styles.weeklyBarTrack}>
+                        <div
+                          style={{
+                            ...styles.weeklyBarFill,
+                            height: `${barHeight}px`,
+                          }}
+                        />
+                      </div>
+
+                      <span style={styles.weeklyBarLabel}>{day.label}</span>
+                      <span style={styles.dayValue}>{day.minutes}m</span>
+                    </div>
+                  );
+                }
+              )}
+            </div>
+          </div>
+
+          <div style={styles.drawerSection}>
+            <p style={styles.label}>Add Warning</p>
+
+            <textarea
+              value={warningInput}
+              onChange={(e) => setWarningInput(e.target.value)}
+              placeholder="Enter a warning reason..."
+              style={styles.drawerTextarea}
+              disabled={!canManageMembers || savingWarning}
+            />
+
+            {canManageMembers && (
+              <button
+                style={styles.primaryButton}
+                onClick={() => createMemberItem("warning")}
+                disabled={savingWarning}
+              >
+                {savingWarning ? "Adding..." : "Add Warning"}
+              </button>
+            )}
+
+            <div style={styles.drawerList}>
+              {selectedMemberProfile.warnings?.length > 0 ? (
+                selectedMemberProfile.warnings.map((item) => (
+                  <div key={item.id} style={styles.drawerListItem}>
+                    <div style={styles.drawerListItemTop}>
+                      <strong style={styles.drawerListTitle}>Warning</strong>
+
+                      {canManageMembers && (
+                        <button
+                          style={styles.deleteItemButton}
+                          onClick={() => deleteMemberItem("warning", item.id)}
+                          disabled={deletingItemId === item.id}
+                        >
+                          {deletingItemId === item.id ? "Deleting..." : "Delete"}
+                        </button>
+                      )}
+                    </div>
+
+                    <p style={styles.drawerListText}>{item.reason}</p>
+                    <span style={styles.drawerListDate}>
+                      {new Date(item.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div style={styles.drawerEmpty}>No warnings yet.</div>
+              )}
+            </div>
+          </div>
+
+          <div style={styles.drawerSection}>
+            <p style={styles.label}>Add Suspension</p>
+
+            <textarea
+              value={suspensionInput}
+              onChange={(e) => setSuspensionInput(e.target.value)}
+              placeholder="Enter suspension details..."
+              style={styles.drawerTextarea}
+              disabled={!canManageMembers || savingSuspension}
+            />
+
+            {canManageMembers && (
+              <button
+                style={styles.primaryButton}
+                onClick={() => createMemberItem("suspension")}
+                disabled={savingSuspension}
+              >
+                {savingSuspension ? "Adding..." : "Add Suspension"}
+              </button>
+            )}
+
+            <div style={styles.drawerList}>
+              {selectedMemberProfile.suspensions?.length > 0 ? (
+                selectedMemberProfile.suspensions.map((item) => (
+                  <div key={item.id} style={styles.drawerListItem}>
+                    <div style={styles.drawerListItemTop}>
+                      <strong style={styles.drawerListTitle}>Suspension</strong>
+
+                      {canManageMembers && (
+                        <button
+                          style={styles.deleteItemButton}
+                          onClick={() =>
+                            deleteMemberItem("suspension", item.id)
+                          }
+                          disabled={deletingItemId === item.id}
+                        >
+                          {deletingItemId === item.id ? "Deleting..." : "Delete"}
+                        </button>
+                      )}
+                    </div>
+
+                    <p style={styles.drawerListText}>{item.details}</p>
+                    <span style={styles.drawerListDate}>
+                      {new Date(item.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div style={styles.drawerEmpty}>No suspensions yet.</div>
+              )}
+            </div>
+          </div>
+
+          <div style={styles.drawerSectionFull}>
+            <p style={styles.label}>Staff Notes</p>
+
+            <textarea
+              value={noteInput}
+              onChange={(e) => setNoteInput(e.target.value)}
+              placeholder="Add a private staff note..."
+              style={styles.drawerTextareaLarge}
+              disabled={!canManageMembers || savingNote}
+            />
+
+            {canManageMembers && (
+              <button
+                style={styles.primaryButton}
+                onClick={() => createMemberItem("note")}
+                disabled={savingNote}
+              >
+                {savingNote ? "Saving..." : "Save Note"}
+              </button>
+            )}
+
+            <div style={styles.drawerList}>
+              {selectedMemberProfile.notes?.length > 0 ? (
+                selectedMemberProfile.notes.map((item) => (
+                  <div key={item.id} style={styles.drawerListItem}>
+                    <div style={styles.drawerListItemTop}>
+                      <strong style={styles.drawerListTitle}>Note</strong>
+
+                      {canManageMembers && (
+                        <button
+                          style={styles.deleteItemButton}
+                          onClick={() => deleteMemberItem("note", item.id)}
+                          disabled={deletingItemId === item.id}
+                        >
+                          {deletingItemId === item.id ? "Deleting..." : "Delete"}
+                        </button>
+                      )}
+                    </div>
+
+                    <p style={styles.drawerListText}>{item.body}</p>
+                    <span style={styles.drawerListDate}>
+                      {new Date(item.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div style={styles.drawerEmpty}>No notes yet.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div style={styles.emptyState}>Unable to load this member.</div>
+      )}
+    </div>
+  </>
+)}
 
       <aside style={styles.sidebar}>
         <div style={styles.sidebarGlow} />
@@ -2046,6 +2062,32 @@ function createStyles({ isMobile, isTablet, sidebarOpen }) {
       display: "grid",
       gap: "18px",
     },
+
+    drawerListItemTop: {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "12px",
+  marginBottom: "8px",
+},
+
+deleteItemButton: {
+  border: "1px solid rgba(190,80,80,0.18)",
+  background: "rgba(255,245,245,0.9)",
+  color: "#b24a4a",
+  borderRadius: "10px",
+  padding: "8px 12px",
+  fontSize: "12px",
+  fontWeight: 700,
+  cursor: "pointer",
+},
+
+dayValue: {
+  fontSize: "12px",
+  color: "#5d7467",
+  fontWeight: 700,
+  marginTop: "8px",
+},
 
     membersTopBar: {
       display: "flex",
