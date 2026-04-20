@@ -1324,16 +1324,22 @@ export default function Dashboard() {
 
               <div style={styles.settingsHeroStats}>
                 <div style={styles.settingsHeroStat}>
-                  <span>Role</span>
-                  <strong>{workspaceRoleLabel}</strong>
+                  <span style={styles.settingsHeroStatLabel}>Role</span>
+                  <strong style={styles.settingsHeroStatValue}>
+                    {workspaceRoleLabel}
+                  </strong>
                 </div>
                 <div style={styles.settingsHeroStat}>
-                  <span>Department</span>
-                  <strong>{workspaceAccess?.viewer?.departmentLabel || "No Department"}</strong>
+                  <span style={styles.settingsHeroStatLabel}>Department</span>
+                  <strong style={styles.settingsHeroStatValue}>
+                    {workspaceAccess?.viewer?.departmentLabel || "No Department"}
+                  </strong>
                 </div>
                 <div style={styles.settingsHeroStat}>
-                  <span>Target</span>
-                  <strong>{activitySummary.targetMinutes || 30}m</strong>
+                  <span style={styles.settingsHeroStatLabel}>Target</span>
+                  <strong style={styles.settingsHeroStatValue}>
+                    {activitySummary.targetMinutes || 30}m
+                  </strong>
                 </div>
               </div>
             </div>
@@ -2181,6 +2187,28 @@ function getStyles({ isMobile, isTablet, sidebarOpen }) {
       borderRadius: 16,
       padding: 14,
       minWidth: 0,
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+      gap: 6,
+      minHeight: 74,
+    },
+
+    settingsHeroStatLabel: {
+      color: "#6f8275",
+      fontSize: 11,
+      fontWeight: 900,
+      letterSpacing: "0.12em",
+      textTransform: "uppercase",
+      lineHeight: 1.1,
+    },
+
+    settingsHeroStatValue: {
+      color: "#17331f",
+      fontSize: 18,
+      fontWeight: 900,
+      lineHeight: 1.16,
+      overflowWrap: "anywhere",
     },
 
     settingsLayout: {
