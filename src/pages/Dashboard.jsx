@@ -4,6 +4,18 @@ import flouraiLogo from "../assets/Text_Logo.png";
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL || "https://api.flourai.io";
 
+const DEFAULT_TABS = ["Overview", "Activity", "Members", "Sessions", "Settings"];
+
+const DEFAULT_WEEKLY_ACTIVITY = [
+  { label: "Mon", minutes: 0 },
+  { label: "Tue", minutes: 0 },
+  { label: "Wed", minutes: 0 },
+  { label: "Thu", minutes: 0 },
+  { label: "Fri", minutes: 0 },
+  { label: "Sat", minutes: 0 },
+  { label: "Sun", minutes: 0 },
+];
+
 function useResponsive() {
   const getWidth = () =>
     typeof window !== "undefined" ? window.innerWidth : 1400;
@@ -23,12 +35,11 @@ function useResponsive() {
   };
 }
 
-const DEFAULT_TABS = ["Overview", "Activity", "Members", "Sessions", "Settings"];
-
 function formatMinutes(minutes = 0) {
   const value = Number(minutes || 0);
   const hrs = Math.floor(value / 60);
   const mins = value % 60;
+
   if (hrs <= 0) return `${mins}m`;
   if (mins === 0) return `${hrs}h`;
   return `${hrs}h ${mins}m`;
@@ -47,19 +58,68 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
-const DEFAULT_WEEKLY_ACTIVITY = [
-  { label: "Mon", minutes: 0 },
-  { label: "Tue", minutes: 0 },
-  { label: "Wed", minutes: 0 },
-  { label: "Thu", minutes: 0 },
-  { label: "Fri", minutes: 0 },
-  { label: "Sat", minutes: 0 },
-  { label: "Sun", minutes: 0 },
-];
+async function parseJsonSafe(res) {
+  try {
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
+function MemberAvatar({ src, name, size = 44, style = {} }) {
+  const initials = getInitials(name || "M");
+
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        minWidth: size,
+        borderRadius: "50%",
+        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "linear-gradient(135deg, #d9f3df, #b8e6c5)",
+        color: "#17331f",
+        fontWeight: 700,
+        fontSize: size > 42 ? 16 : 13,
+        border: "1px solid rgba(0,0,0,0.06)",
+        ...style,
+      }}
+    >
+      {src ? (
+        <img
+          src={src}
+          alt={name || "Avatar"}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      ) : (
+        initials
+      )}
+    </div>
+  );
+}
+
+function EmptyState({ text }) {
+  return (
+    <div
+      style={{
+        padding: 18,
+        borderRadius: 16,
+        border: "1px dashed rgba(23,51,31,0.15)",
+        background: "rgba(255,255,255,0.65)",
+        color: "#526256",
+        fontSize: 14,
+      }}
+    >
+      {text}
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { isMobile, isTablet } = useResponsive();
-
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("Overview");
 
@@ -109,16 +169,15 @@ export default function Dashboard() {
     document.body.style.margin = "0";
     document.body.style.padding = "0";
     document.body.style.background = "#edf6ef";
-    document.documentElement.style.margin = "0";
-    document.documentElement.style.padding = "0";
+    document.body.style.fontFamily =
+      "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
     document.documentElement.style.background = "#edf6ef";
 
     return () => {
       document.body.style.margin = "";
       document.body.style.padding = "";
       document.body.style.background = "";
-      document.documentElement.style.margin = "";
-      document.documentElement.style.padding = "";
+      document.body.style.fontFamily = "";
       document.documentElement.style.background = "";
     };
   }, []);
@@ -136,14 +195,13 @@ export default function Dashboard() {
         const meRes = await fetch(`${API_BASE}/api/auth/me`, {
           credentials: "include",
         });
-
-        const meData = await meRes.json();
+        const meData = await parseJsonSafe(meRes);
 
         if (!meRes.ok) {
           throw new Error(meData.error || "Failed to load user");
         }
 
-        setUser(meData.user);
+        setUser(meData.user || null);
 
         if (meData.user?.robloxId) {
           try {
@@ -153,7 +211,7 @@ export default function Dashboard() {
                 credentials: "include",
               }
             );
-            const avatarData = await avatarRes.json();
+            const avatarData = await parseJsonSafe(avatarRes);
 
             if (avatarData.ok && avatarData.imageUrl) {
               setAvatar(avatarData.imageUrl);
@@ -180,8 +238,7 @@ export default function Dashboard() {
       const res = await fetch(`${API_BASE}/api/workspace/access`, {
         credentials: "include",
       });
-
-      const data = await res.json();
+      const data = await parseJsonSafe(res);
 
       if (!res.ok) {
         throw new Error(data.error || "Failed to load workspace access");
@@ -203,8 +260,7 @@ export default function Dashboard() {
       const res = await fetch(`${API_BASE}/api/workspace/members`, {
         credentials: "include",
       });
-
-      const data = await res.json();
+      const data = await parseJsonSafe(res);
 
       if (!res.ok) {
         throw new Error(data.error || "Failed to load members");
@@ -227,8 +283,7 @@ export default function Dashboard() {
       const res = await fetch(`${API_BASE}/api/workspace/activity/overview`, {
         credentials: "include",
       });
-
-      const data = await res.json();
+      const data = await parseJsonSafe(res);
 
       if (!res.ok) {
         throw new Error(data.error || "Failed to load activity overview");
@@ -250,14 +305,13 @@ export default function Dashboard() {
       const res = await fetch(`${API_BASE}/api/workspace/settings`, {
         credentials: "include",
       });
-
-      const data = await res.json();
+      const data = await parseJsonSafe(res);
 
       if (!res.ok) {
         throw new Error(data.error || "Failed to load workspace settings");
       }
 
-      setWorkspaceSettings(data.settings);
+      setWorkspaceSettings(data.settings || null);
     } catch (err) {
       setSettingsError(err.message || "Failed to load workspace settings");
     } finally {
@@ -268,23 +322,38 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user) return;
     loadWorkspaceAccess();
-  }, [user]);
-
-  useEffect(() => {
-    if (!user) return;
-    if (membersLoaded) return;
-    loadMembers();
+    loadActivityOverview();
+    loadWorkspaceSettings();
+    if (!membersLoaded) loadMembers();
   }, [user, membersLoaded]);
 
-  useEffect(() => {
-    if (!user) return;
-    loadActivityOverview();
-  }, [user]);
+  const loadMemberProfile = async (userId) => {
+    if (!userId) return;
 
-  useEffect(() => {
-    if (!user) return;
-    loadWorkspaceSettings();
-  }, [user]);
+    try {
+      setSelectedMemberLoading(true);
+      setSelectedMemberError("");
+
+      const res = await fetch(`${API_BASE}/api/workspace/members/${userId}/profile`, {
+        credentials: "include",
+      });
+      const data = await parseJsonSafe(res);
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load member profile");
+      }
+
+      setSelectedMemberId(userId);
+      setSelectedMemberProfile(data.member || null);
+      setWarningInput("");
+      setSuspensionInput("");
+      setNoteInput("");
+    } catch (err) {
+      setSelectedMemberError(err.message || "Failed to load member profile");
+    } finally {
+      setSelectedMemberLoading(false);
+    }
+  };
 
   const refreshMembers = async () => {
     try {
@@ -299,7 +368,7 @@ export default function Dashboard() {
         },
       });
 
-      const refreshData = await refreshRes.json();
+      const refreshData = await parseJsonSafe(refreshRes);
 
       if (!refreshRes.ok) {
         throw new Error(refreshData.error || "Failed to refresh members");
@@ -345,7 +414,7 @@ export default function Dashboard() {
         }
       );
 
-      const data = await res.json();
+      const data = await parseJsonSafe(res);
 
       if (!res.ok) {
         throw new Error(data.error || "Failed to assign member");
@@ -381,7 +450,7 @@ export default function Dashboard() {
         }
       );
 
-      const data = await res.json();
+      const data = await parseJsonSafe(res);
 
       if (!res.ok) {
         throw new Error(data.error || "Failed to remove member");
@@ -397,36 +466,6 @@ export default function Dashboard() {
       setSettingsError(err.message || "Failed to remove member");
     } finally {
       setRemovingDepartmentUserId("");
-    }
-  };
-
-  const loadMemberProfile = async (userId) => {
-    try {
-      setSelectedMemberLoading(true);
-      setSelectedMemberError("");
-
-      const res = await fetch(
-        `${API_BASE}/api/workspace/members/${userId}/profile`,
-        {
-          credentials: "include",
-        }
-      );
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to load member profile");
-      }
-
-      setSelectedMemberId(userId);
-      setSelectedMemberProfile(data.member);
-      setWarningInput("");
-      setSuspensionInput("");
-      setNoteInput("");
-    } catch (err) {
-      setSelectedMemberError(err.message || "Failed to load member profile");
-    } finally {
-      setSelectedMemberLoading(false);
     }
   };
 
@@ -486,13 +525,13 @@ export default function Dashboard() {
         }
       );
 
-      const data = await res.json();
+      const data = await parseJsonSafe(res);
 
       if (!res.ok) {
         throw new Error(data.error || `Failed to add ${type}`);
       }
 
-      setSelectedMemberProfile(data.member);
+      setSelectedMemberProfile(data.member || null);
       config.clear();
 
       await Promise.all([loadMembers(), loadActivityOverview()]);
@@ -536,13 +575,13 @@ export default function Dashboard() {
         }
       );
 
-      const data = await res.json();
+      const data = await parseJsonSafe(res);
 
       if (!res.ok) {
         throw new Error(data.error || config.errorText);
       }
 
-      setSelectedMemberProfile(data.member);
+      setSelectedMemberProfile(data.member || null);
 
       await Promise.all([loadMembers(), loadActivityOverview()]);
     } catch (err) {
@@ -577,7 +616,6 @@ export default function Dashboard() {
   const canManageWebsite = !!permissions.canManageWebsite;
   const canManageSettings = !!permissions.canManageSettings;
 
-  const availableTabs = DEFAULT_TABS;
   const workspaceName = workspaceAccess?.workspace?.name || "Flourai Panel";
   const workspaceRoleLabel = workspaceAccess?.viewer?.roleLabel || "Connected";
   const lastMemberSync = workspaceAccess?.workspace?.lastMemberSync || "";
@@ -597,8 +635,13 @@ export default function Dashboard() {
     workspaceAccess?.workspace?.departments ||
     {};
 
-  const selectedDepartment =
-    departmentCollection?.[selectedDepartmentKey] || null;
+  const departmentList = Object.values(departmentCollection || {});
+  const safeDepartmentKey =
+    selectedDepartmentKey && departmentCollection?.[selectedDepartmentKey]
+      ? selectedDepartmentKey
+      : departmentList[0]?.key || "";
+
+  const selectedDepartment = departmentCollection?.[safeDepartmentKey] || null;
 
   const activityWeekly = Array.isArray(activityOverview?.weekly)
     ? activityOverview.weekly
@@ -608,7 +651,7 @@ export default function Dashboard() {
     ? activityOverview.topMembers
     : [];
 
-  const styles = createStyles({ isMobile, isTablet, sidebarOpen });
+  const styles = getStyles({ isMobile, isTablet, sidebarOpen });
 
   return (
     <div style={styles.page}>
@@ -622,128 +665,104 @@ export default function Dashboard() {
 
       {selectedMemberId && (
         <>
-          <div style={styles.memberDrawerOverlay} onClick={closeMemberDrawer} />
-          <div style={styles.memberDrawer}>
-            <div style={styles.memberDrawerHeader}>
-              <div style={styles.memberDrawerHeaderLeft}>
-                <div style={styles.memberDrawerAvatar}>
-                  {selectedMemberProfile?.avatar ? (
-                    <img
-                      src={selectedMemberProfile.avatar}
-                      alt={`${selectedMemberProfile.displayName} avatar`}
-                      style={styles.memberDrawerAvatarImg}
-                    />
-                  ) : (
-                    getInitials(selectedMemberProfile?.displayName || "Member")
-                  )}
-                </div>
+          <div style={styles.drawerOverlay} onClick={closeMemberDrawer} />
+          <div style={styles.drawer}>
+            <div style={styles.drawerHeader}>
+              <div style={styles.drawerHeaderLeft}>
+                <MemberAvatar
+                  src={selectedMemberProfile?.avatar}
+                  name={selectedMemberProfile?.displayName || "Member"}
+                  size={64}
+                />
 
                 <div style={{ minWidth: 0 }}>
-                  <h2 style={styles.memberDrawerName}>
+                  <h2 style={styles.drawerTitle}>
                     {selectedMemberProfile?.displayName || "Loading member..."}
                   </h2>
-                  <p style={styles.memberDrawerUsername}>
+
+                  <p style={styles.drawerSubtitle}>
                     {selectedMemberProfile?.username
                       ? `@${selectedMemberProfile.username}`
                       : ""}
                   </p>
 
-                  <div style={styles.memberDrawerBadgeRow}>
+                  <div style={styles.badgeRow}>
                     {selectedMemberProfile?.roleLabel && (
-                      <span style={styles.memberBadge}>
-                        {selectedMemberProfile.roleLabel}
-                      </span>
+                      <span style={styles.badge}>{selectedMemberProfile.roleLabel}</span>
                     )}
-
                     {selectedMemberProfile?.departmentLabel && (
-                      <span style={styles.memberBadgeSoft}>
+                      <span style={styles.softBadge}>
                         {selectedMemberProfile.departmentLabel}
                       </span>
                     )}
-
-                    <span style={styles.memberBadgeSoft}>
-                      Weekly: {" "}
-                      {formatMinutes(selectedMemberProfile?.weeklyTotalMinutes || 0)}
+                    <span style={styles.softBadge}>
+                      Weekly: {formatMinutes(selectedMemberProfile?.weeklyTotalMinutes || 0)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <button style={styles.closeDrawerButton} onClick={closeMemberDrawer}>
+              <button style={styles.iconButton} onClick={closeMemberDrawer}>
                 ✕
               </button>
             </div>
 
-            {selectedMemberError && (
-              <div style={{ ...styles.error, marginBottom: 16 }}>
-                {selectedMemberError}
-              </div>
-            )}
+            {selectedMemberError && <div style={styles.error}>{selectedMemberError}</div>}
 
             {selectedMemberLoading && !selectedMemberProfile ? (
               <div style={styles.loading}>Loading member profile...</div>
             ) : selectedMemberProfile ? (
-              <div style={styles.memberDrawerGrid}>
-                <div style={styles.drawerSection}>
-                  <p style={styles.label}>Profile</p>
-
-                  <div style={styles.drawerStatGrid}>
-                    <div style={styles.drawerStatCard}>
-                      <span style={styles.drawerStatLabel}>Warnings</span>
-                      <strong style={styles.drawerStatValue}>
+              <div style={styles.drawerBody}>
+                <div style={styles.panel}>
+                  <div style={styles.sectionLabel}>Profile</div>
+                  <div style={styles.statsGrid4}>
+                    <div style={styles.metricCard}>
+                      <div style={styles.metricLabel}>Warnings</div>
+                      <div style={styles.metricValue}>
                         {selectedMemberProfile.warnings?.length || 0}
-                      </strong>
+                      </div>
                     </div>
-
-                    <div style={styles.drawerStatCard}>
-                      <span style={styles.drawerStatLabel}>Suspensions</span>
-                      <strong style={styles.drawerStatValue}>
+                    <div style={styles.metricCard}>
+                      <div style={styles.metricLabel}>Suspensions</div>
+                      <div style={styles.metricValue}>
                         {selectedMemberProfile.suspensions?.length || 0}
-                      </strong>
+                      </div>
                     </div>
-
-                    <div style={styles.drawerStatCard}>
-                      <span style={styles.drawerStatLabel}>Notes</span>
-                      <strong style={styles.drawerStatValue}>
+                    <div style={styles.metricCard}>
+                      <div style={styles.metricLabel}>Notes</div>
+                      <div style={styles.metricValue}>
                         {selectedMemberProfile.notes?.length || 0}
-                      </strong>
+                      </div>
                     </div>
-
-                    <div style={styles.drawerStatCard}>
-                      <span style={styles.drawerStatLabel}>Weekly Total</span>
-                      <strong style={styles.drawerStatValue}>
+                    <div style={styles.metricCard}>
+                      <div style={styles.metricLabel}>Weekly Total</div>
+                      <div style={styles.metricValue}>
                         {formatMinutes(selectedMemberProfile.weeklyTotalMinutes || 0)}
-                      </strong>
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {canViewActivity && (
-                  <div style={styles.drawerSection}>
-                    <p style={styles.label}>Weekly Activity</p>
-
-                    <div style={styles.weeklyBars}>
+                  <div style={styles.panel}>
+                    <div style={styles.sectionLabel}>Weekly Activity</div>
+                    <div style={styles.barChart}>
                       {(selectedMemberProfile.weeklyActivity || DEFAULT_WEEKLY_ACTIVITY).map(
                         (day) => {
-                          const barHeight = clamp(
-                            Number(day.minutes || 0) * 1.8,
-                            10,
-                            110
-                          );
+                          const height = clamp(Number(day.minutes || 0) * 1.6, 10, 110);
 
                           return (
-                            <div key={day.label} style={styles.weeklyBarWrap}>
-                              <div style={styles.weeklyBarTrack}>
+                            <div key={day.label} style={styles.barItem}>
+                              <span style={styles.barValue}>{day.minutes}m</span>
+                              <div style={styles.barTrack}>
                                 <div
                                   style={{
-                                    ...styles.weeklyBarFill,
-                                    height: `${barHeight}px`,
+                                    ...styles.barFill,
+                                    height: `${height}px`,
                                   }}
                                 />
                               </div>
-
-                              <span style={styles.weeklyBarLabel}>{day.label}</span>
-                              <span style={styles.dayValue}>{day.minutes}m</span>
+                              <span style={styles.barLabel}>{day.label}</span>
                             </div>
                           );
                         }
@@ -752,121 +771,113 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                <div style={styles.drawerSection}>
-                  <p style={styles.label}>Add Warning</p>
-
-                  <textarea
-                    value={warningInput}
-                    onChange={(e) => setWarningInput(e.target.value)}
-                    placeholder="Enter a warning reason..."
-                    style={styles.drawerTextarea}
-                    disabled={!canWarn || savingWarning}
-                  />
-
-                  {canWarn && (
-                    <button
-                      style={styles.primaryButton}
-                      onClick={() => createMemberItem("warning")}
-                      disabled={savingWarning}
-                    >
-                      {savingWarning ? "Adding..." : "Add Warning"}
-                    </button>
-                  )}
-
-                  <div style={styles.drawerList}>
-                    {selectedMemberProfile.warnings?.length > 0 ? (
-                      selectedMemberProfile.warnings.map((item) => (
-                        <div key={item.id} style={styles.drawerListItem}>
-                          <div style={styles.drawerListItemTop}>
-                            <strong style={styles.drawerListTitle}>Warning</strong>
-
-                            {canWarn && (
-                              <button
-                                style={styles.deleteItemButton}
-                                onClick={() => deleteMemberItem("warning", item.id)}
-                                disabled={deletingItemId === item.id}
-                              >
-                                {deletingItemId === item.id ? "Deleting..." : "Delete"}
-                              </button>
-                            )}
-                          </div>
-
-                          <p style={styles.drawerListText}>{item.reason}</p>
-                          <span style={styles.drawerListDate}>
-                            {new Date(item.createdAt).toLocaleString()}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div style={styles.drawerEmpty}>No warnings yet.</div>
+                <div style={styles.drawerColumns}>
+                  <div style={styles.panel}>
+                    <div style={styles.sectionLabel}>Add Warning</div>
+                    <textarea
+                      value={warningInput}
+                      onChange={(e) => setWarningInput(e.target.value)}
+                      placeholder="Enter a warning reason..."
+                      style={styles.textarea}
+                      disabled={!canWarn || savingWarning}
+                    />
+                    {canWarn && (
+                      <button
+                        style={styles.primaryButton}
+                        onClick={() => createMemberItem("warning")}
+                        disabled={savingWarning}
+                      >
+                        {savingWarning ? "Adding..." : "Add Warning"}
+                      </button>
                     )}
+
+                    <div style={styles.listStack}>
+                      {selectedMemberProfile.warnings?.length > 0 ? (
+                        selectedMemberProfile.warnings.map((item) => (
+                          <div key={item.id} style={styles.listCard}>
+                            <div style={styles.listCardHeader}>
+                              <strong>Warning</strong>
+                              {canWarn && (
+                                <button
+                                  style={styles.dangerGhostButton}
+                                  onClick={() => deleteMemberItem("warning", item.id)}
+                                  disabled={deletingItemId === item.id}
+                                >
+                                  {deletingItemId === item.id ? "Deleting..." : "Delete"}
+                                </button>
+                              )}
+                            </div>
+                            <div style={styles.listCardText}>{item.reason}</div>
+                            <div style={styles.listCardMeta}>
+                              {new Date(item.createdAt).toLocaleString()}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <EmptyState text="No warnings yet." />
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={styles.panel}>
+                    <div style={styles.sectionLabel}>Add Suspension</div>
+                    <textarea
+                      value={suspensionInput}
+                      onChange={(e) => setSuspensionInput(e.target.value)}
+                      placeholder="Enter suspension details..."
+                      style={styles.textarea}
+                      disabled={!canSuspend || savingSuspension}
+                    />
+                    {canSuspend && (
+                      <button
+                        style={styles.primaryButton}
+                        onClick={() => createMemberItem("suspension")}
+                        disabled={savingSuspension}
+                      >
+                        {savingSuspension ? "Adding..." : "Add Suspension"}
+                      </button>
+                    )}
+
+                    <div style={styles.listStack}>
+                      {selectedMemberProfile.suspensions?.length > 0 ? (
+                        selectedMemberProfile.suspensions.map((item) => (
+                          <div key={item.id} style={styles.listCard}>
+                            <div style={styles.listCardHeader}>
+                              <strong>Suspension</strong>
+                              {canSuspend && (
+                                <button
+                                  style={styles.dangerGhostButton}
+                                  onClick={() =>
+                                    deleteMemberItem("suspension", item.id)
+                                  }
+                                  disabled={deletingItemId === item.id}
+                                >
+                                  {deletingItemId === item.id ? "Deleting..." : "Delete"}
+                                </button>
+                              )}
+                            </div>
+                            <div style={styles.listCardText}>{item.details}</div>
+                            <div style={styles.listCardMeta}>
+                              {new Date(item.createdAt).toLocaleString()}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <EmptyState text="No suspensions yet." />
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <div style={styles.drawerSection}>
-                  <p style={styles.label}>Add Suspension</p>
-
-                  <textarea
-                    value={suspensionInput}
-                    onChange={(e) => setSuspensionInput(e.target.value)}
-                    placeholder="Enter suspension details..."
-                    style={styles.drawerTextarea}
-                    disabled={!canSuspend || savingSuspension}
-                  />
-
-                  {canSuspend && (
-                    <button
-                      style={styles.primaryButton}
-                      onClick={() => createMemberItem("suspension")}
-                      disabled={savingSuspension}
-                    >
-                      {savingSuspension ? "Adding..." : "Add Suspension"}
-                    </button>
-                  )}
-
-                  <div style={styles.drawerList}>
-                    {selectedMemberProfile.suspensions?.length > 0 ? (
-                      selectedMemberProfile.suspensions.map((item) => (
-                        <div key={item.id} style={styles.drawerListItem}>
-                          <div style={styles.drawerListItemTop}>
-                            <strong style={styles.drawerListTitle}>Suspension</strong>
-
-                            {canSuspend && (
-                              <button
-                                style={styles.deleteItemButton}
-                                onClick={() =>
-                                  deleteMemberItem("suspension", item.id)
-                                }
-                                disabled={deletingItemId === item.id}
-                              >
-                                {deletingItemId === item.id ? "Deleting..." : "Delete"}
-                              </button>
-                            )}
-                          </div>
-
-                          <p style={styles.drawerListText}>{item.details}</p>
-                          <span style={styles.drawerListDate}>
-                            {new Date(item.createdAt).toLocaleString()}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div style={styles.drawerEmpty}>No suspensions yet.</div>
-                    )}
-                  </div>
-                </div>
-
-                <div style={styles.drawerSectionFull}>
-                  <p style={styles.label}>Staff Notes</p>
-
+                <div style={styles.panel}>
+                  <div style={styles.sectionLabel}>Staff Notes</div>
                   <textarea
                     value={noteInput}
                     onChange={(e) => setNoteInput(e.target.value)}
                     placeholder="Add a private staff note..."
-                    style={styles.drawerTextareaLarge}
+                    style={{ ...styles.textarea, minHeight: 120 }}
                     disabled={!canAddNotes || savingNote}
                   />
-
                   {canAddNotes && (
                     <button
                       style={styles.primaryButton}
@@ -877,16 +888,15 @@ export default function Dashboard() {
                     </button>
                   )}
 
-                  <div style={styles.drawerList}>
+                  <div style={styles.listStack}>
                     {selectedMemberProfile.notes?.length > 0 ? (
                       selectedMemberProfile.notes.map((item) => (
-                        <div key={item.id} style={styles.drawerListItem}>
-                          <div style={styles.drawerListItemTop}>
-                            <strong style={styles.drawerListTitle}>Note</strong>
-
+                        <div key={item.id} style={styles.listCard}>
+                          <div style={styles.listCardHeader}>
+                            <strong>Note</strong>
                             {canAddNotes && (
                               <button
-                                style={styles.deleteItemButton}
+                                style={styles.dangerGhostButton}
                                 onClick={() => deleteMemberItem("note", item.id)}
                                 disabled={deletingItemId === item.id}
                               >
@@ -894,79 +904,66 @@ export default function Dashboard() {
                               </button>
                             )}
                           </div>
-
-                          <p style={styles.drawerListText}>{item.body}</p>
-                          <span style={styles.drawerListDate}>
+                          <div style={styles.listCardText}>{item.body}</div>
+                          <div style={styles.listCardMeta}>
                             {new Date(item.createdAt).toLocaleString()}
-                          </span>
+                          </div>
                         </div>
                       ))
                     ) : (
-                      <div style={styles.drawerEmpty}>No notes yet.</div>
+                      <EmptyState text="No notes yet." />
                     )}
                   </div>
                 </div>
               </div>
             ) : (
-              <div style={styles.emptyState}>Unable to load this member.</div>
+              <EmptyState text="Unable to load this member." />
             )}
           </div>
         </>
       )}
 
       <aside style={styles.sidebar}>
-        <div style={styles.sidebarGlow} />
-
-        <div style={styles.sidebarTop}>
+        <div style={styles.sidebarInner}>
           <div style={styles.logoWrap}>
-            <div style={styles.logoGlow} />
-            <img src={flouraiLogo} alt="Flourai" style={styles.logoImage} />
+            <img src={flouraiLogo} alt="Flourai" style={styles.logo} />
           </div>
-        </div>
 
-        {user && (
-          <div style={styles.profileCard}>
-            <div style={styles.profileGlow} />
-
-            <div style={styles.avatar}>
-              {avatar ? (
-                <img
-                  src={avatar}
-                  alt={`${user.displayName} avatar`}
-                  style={styles.avatarImg}
-                />
-              ) : (
-                user.displayName?.charAt(0)?.toUpperCase() || "F"
-              )}
-            </div>
-
-            <div style={styles.profileTextWrap}>
-              <div style={styles.profileName}>{user.displayName}</div>
-              <div style={styles.profileUser}>@{user.username}</div>
-              <div style={styles.profileRole}>{workspaceRoleLabel}</div>
-            </div>
-          </div>
-        )}
-
-        <div style={styles.nav}>
-          {availableTabs.map((tab) => {
-            const active = activeTab === tab;
-            return (
-              <div
-                key={tab}
-                style={active ? styles.navActive : styles.navItem}
-                onClick={() => setActiveTab(tab)}
-              >
-                {tab}
+          {user && (
+            <div style={styles.profileCard}>
+              <MemberAvatar src={avatar} name={user.displayName} size={48} />
+              <div style={{ minWidth: 0 }}>
+                <div style={styles.profileName}>{user.displayName}</div>
+                <div style={styles.profileUser}>@{user.username}</div>
+                <div style={styles.profileRole}>{workspaceRoleLabel}</div>
               </div>
-            );
-          })}
+            </div>
+          )}
+
+          <div style={styles.navList}>
+            {DEFAULT_TABS.map((tab) => {
+              const active = activeTab === tab;
+
+              return (
+                <button
+                  key={tab}
+                  style={active ? styles.navButtonActive : styles.navButton}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    if (isMobile) setSidebarOpen(false);
+                  }}
+                >
+                  {tab}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </aside>
 
       <main style={styles.main}>
-        <div style={styles.header}>
-          <div style={styles.headerLeft}>
+        <div style={styles.topBar}>
+          <div style={styles.topBarLeft}>
             {isMobile && (
               <button
                 style={styles.menuButton}
@@ -978,8 +975,8 @@ export default function Dashboard() {
             )}
 
             <div>
-              <p style={styles.kicker}>Workspace</p>
-              <h1 style={styles.title}>{workspaceName}</h1>
+              <div style={styles.kicker}>Workspace</div>
+              <h1 style={styles.pageTitle}>{workspaceName}</h1>
             </div>
           </div>
         </div>
@@ -987,11 +984,11 @@ export default function Dashboard() {
         {error && <div style={styles.error}>{error}</div>}
 
         {initialLoading && !error && (
-          <div style={styles.loading}>Loading dashboard...</div>
+          <div style={styles.loadingCard}>Loading dashboard...</div>
         )}
 
         {!initialLoading && !error && user && accessLoading && (
-          <div style={styles.loading}>Loading workspace access...</div>
+          <div style={styles.loadingCard}>Loading workspace access...</div>
         )}
 
         {!initialLoading && !error && user && accessError && (
@@ -999,224 +996,187 @@ export default function Dashboard() {
         )}
 
         {user && activeTab === "Overview" && (
-          <>
-            <div style={styles.grid}>
-              <div style={styles.cardLarge}>
-                <p style={styles.label}>Connected Account</p>
-
-                <div style={styles.accountProfileCard}>
-                  <div style={styles.accountProfileGlow} />
-
-                  <div style={styles.accountAvatar}>
-                    {avatar ? (
-                      <img
-                        src={avatar}
-                        alt={`${user.displayName} avatar`}
-                        style={styles.accountAvatarImg}
-                      />
-                    ) : (
-                      user.displayName?.charAt(0)?.toUpperCase() || "F"
-                    )}
-                  </div>
-
-                  <div style={styles.accountInfo}>
-                    <h2 style={styles.accountName}>{user.displayName}</h2>
-                    <p style={styles.accountUsername}>@{user.username}</p>
-                    <p style={styles.accountId}>ID: {user.robloxId}</p>
-                    <p style={styles.accountRole}>
+          <div style={styles.pageStack}>
+            <div style={styles.summaryGrid}>
+              <div style={{ ...styles.card, ...styles.heroCard }}>
+                <div style={styles.sectionLabel}>Connected Account</div>
+                <div style={styles.heroInner}>
+                  <MemberAvatar src={avatar} name={user.displayName} size={68} />
+                  <div>
+                    <div style={styles.heroName}>{user.displayName}</div>
+                    <div style={styles.heroText}>@{user.username}</div>
+                    <div style={styles.heroText}>ID: {user.robloxId}</div>
+                    <div style={styles.heroText}>
                       Workspace Role: {workspaceRoleLabel}
-                    </p>
-                    <p style={styles.accountRole}>
+                    </div>
+                    <div style={styles.heroText}>
                       Department: {workspaceAccess?.viewer?.departmentLabel || "No Department"}
-                    </p>
+                    </div>
                   </div>
                 </div>
               </div>
 
               <div style={styles.card}>
-                <p style={styles.label}>Activity</p>
-                <h2 style={styles.stat}>{formatMinutes(activitySummary.totalMinutes)}</h2>
-                <p style={styles.sub}>
+                <div style={styles.sectionLabel}>Activity</div>
+                <div style={styles.bigStat}>
+                  {formatMinutes(activitySummary.totalMinutes)}
+                </div>
+                <div style={styles.mutedText}>
                   Tracked weekly activity across synced directory members.
-                </p>
+                </div>
               </div>
 
               <div style={styles.card}>
-                <p style={styles.label}>Directory Count</p>
-                <h2 style={styles.stat}>{membersLoaded ? members.length : "—"}</h2>
-                <p style={styles.sub}>
+                <div style={styles.sectionLabel}>Directory Count</div>
+                <div style={styles.bigStat}>{membersLoaded ? members.length : "—"}</div>
+                <div style={styles.mutedText}>
                   {lastMemberSync
                     ? `Last synced: ${new Date(lastMemberSync).toLocaleString()}`
                     : "Members will appear after the first sync."}
-                </p>
+                </div>
               </div>
             </div>
 
-            <div style={styles.bottomGrid}>
-              <div style={styles.bottomCard}>
-                <p style={styles.label}>System Status</p>
-                <h3 style={styles.bottomTitle}>Workspace is connected 🌿</h3>
-                <p style={styles.sub}>
-                  This panel now supports member profile records, activity totals,
+            <div style={styles.twoColGrid}>
+              <div style={styles.card}>
+                <div style={styles.sectionLabel}>System Status</div>
+                <div style={styles.sectionTitle}>Workspace is connected 🌿</div>
+                <div style={styles.mutedText}>
+                  This panel supports member profile records, activity totals,
                   warnings, suspensions, notes, and department-based permissions.
-                </p>
+                </div>
               </div>
 
-              <div style={styles.bottomCard}>
-                <p style={styles.label}>Quick Numbers</p>
-                <div style={styles.quickInfoGrid}>
-                  <div style={styles.quickInfoPill}>
+              <div style={styles.card}>
+                <div style={styles.sectionLabel}>Quick Numbers</div>
+                <div style={styles.pillGrid}>
+                  <div style={styles.infoPill}>
                     <span>Active Members</span>
                     <strong>{activitySummary.activeMembers}</strong>
                   </div>
-
-                  <div style={styles.quickInfoPill}>
+                  <div style={styles.infoPill}>
                     <span>Avg Weekly</span>
                     <strong>{formatMinutes(activitySummary.averageMinutes)}</strong>
                   </div>
-
-                  <div style={styles.quickInfoPill}>
+                  <div style={styles.infoPill}>
                     <span>On Track</span>
                     <strong>{activitySummary.quotaRate}%</strong>
                   </div>
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
 
         {user && activeTab === "Activity" && (
-          <div style={styles.panelStack}>
-            <div style={styles.placeholderCard}>
-              <p style={styles.label}>Activity</p>
-              <h3 style={styles.bottomTitle}>Workspace activity overview</h3>
-              <p style={styles.sub}>
+          <div style={styles.pageStack}>
+            <div style={styles.card}>
+              <div style={styles.sectionLabel}>Activity</div>
+              <div style={styles.sectionTitle}>Workspace activity overview</div>
+              <div style={styles.mutedText}>
                 View tracked totals, weekly trends, top performers, and quota progress.
-              </p>
+              </div>
             </div>
 
             {activityError && <div style={styles.error}>{activityError}</div>}
 
             {activityLoading ? (
-              <div style={styles.loading}>Loading activity overview...</div>
+              <div style={styles.loadingCard}>Loading activity overview...</div>
             ) : (
               <>
-                <div style={styles.activityTopGrid}>
-                  <div style={styles.statCardEnhanced}>
-                    <span style={styles.enhancedStatLabel}>Total Tracked</span>
-                    <strong style={styles.enhancedStatValue}>
+                <div style={styles.metricGrid}>
+                  <div style={styles.metricCard}>
+                    <div style={styles.metricLabel}>Total Tracked</div>
+                    <div style={styles.metricValue}>
                       {formatMinutes(activitySummary.totalMinutes)}
-                    </strong>
-                    <small style={styles.enhancedStatSub}>
-                      All synced members this week
-                    </small>
+                    </div>
+                    <div style={styles.metricSub}>All synced members this week</div>
                   </div>
 
-                  <div style={styles.statCardEnhanced}>
-                    <span style={styles.enhancedStatLabel}>Active Members</span>
-                    <strong style={styles.enhancedStatValue}>
-                      {activitySummary.activeMembers}
-                    </strong>
-                    <small style={styles.enhancedStatSub}>
-                      Members with logged activity
-                    </small>
+                  <div style={styles.metricCard}>
+                    <div style={styles.metricLabel}>Active Members</div>
+                    <div style={styles.metricValue}>{activitySummary.activeMembers}</div>
+                    <div style={styles.metricSub}>Members with logged activity</div>
                   </div>
 
-                  <div style={styles.statCardEnhanced}>
-                    <span style={styles.enhancedStatLabel}>Weekly Average</span>
-                    <strong style={styles.enhancedStatValue}>
+                  <div style={styles.metricCard}>
+                    <div style={styles.metricLabel}>Weekly Average</div>
+                    <div style={styles.metricValue}>
                       {formatMinutes(activitySummary.averageMinutes)}
-                    </strong>
-                    <small style={styles.enhancedStatSub}>
-                      Average per synced member
-                    </small>
+                    </div>
+                    <div style={styles.metricSub}>Average per synced member</div>
                   </div>
 
-                  <div style={styles.statCardEnhanced}>
-                    <span style={styles.enhancedStatLabel}>Quota Completion</span>
-                    <strong style={styles.enhancedStatValue}>
-                      {activitySummary.quotaRate}%
-                    </strong>
-                    <small style={styles.enhancedStatSub}>
+                  <div style={styles.metricCard}>
+                    <div style={styles.metricLabel}>Quota Completion</div>
+                    <div style={styles.metricValue}>{activitySummary.quotaRate}%</div>
+                    <div style={styles.metricSub}>
                       Members at {activitySummary.targetMinutes}m+
-                    </small>
+                    </div>
                   </div>
                 </div>
 
-                <div style={styles.activityBodyGrid}>
-                  <div style={styles.activityChartCard}>
-                    <p style={styles.label}>Weekly Trend</p>
-                    <h3 style={styles.sectionTitle}>Group activity this week</h3>
+                <div style={styles.twoColGrid}>
+                  <div style={styles.card}>
+                    <div style={styles.sectionLabel}>Weekly Trend</div>
+                    <div style={styles.sectionTitle}>Group activity this week</div>
 
-                    <div style={styles.activityChartBars}>
+                    <div style={styles.barChartLarge}>
                       {activityWeekly.map((day) => {
-                        const barHeight = clamp(Number(day.minutes || 0) * 0.8, 18, 170);
+                        const height = clamp(Number(day.minutes || 0) * 0.8, 18, 170);
 
                         return (
-                          <div key={day.label} style={styles.activityChartBarItem}>
-                            <span style={styles.activityChartValue}>
-                              {day.minutes}m
-                            </span>
-                            <div style={styles.activityChartTrack}>
+                          <div key={day.label} style={styles.barItem}>
+                            <span style={styles.barValue}>{day.minutes}m</span>
+                            <div style={{ ...styles.barTrack, height: 180 }}>
                               <div
                                 style={{
-                                  ...styles.activityChartFill,
-                                  height: `${barHeight}px`,
+                                  ...styles.barFill,
+                                  height: `${height}px`,
                                 }}
                               />
                             </div>
-                            <span style={styles.activityChartLabel}>{day.label}</span>
+                            <span style={styles.barLabel}>{day.label}</span>
                           </div>
                         );
                       })}
                     </div>
                   </div>
 
-                  <div style={styles.activitySideCard}>
-                    <p style={styles.label}>Top Performers</p>
-                    <h3 style={styles.sectionTitle}>Most active members</h3>
+                  <div style={styles.card}>
+                    <div style={styles.sectionLabel}>Top Performers</div>
+                    <div style={styles.sectionTitle}>Most active members</div>
 
-                    <div style={styles.topList}>
+                    <div style={styles.listStack}>
                       {activityTopMembers.length > 0 ? (
                         activityTopMembers.map((member, index) => (
-                          <div
+                          <button
                             key={member.userId}
-                            style={styles.topListItem}
+                            style={styles.rankRow}
                             onClick={() => loadMemberProfile(member.userId)}
                           >
-                            <div style={styles.topListLeft}>
-                              <div style={styles.topRank}>#{index + 1}</div>
-
-                              <div style={styles.topAvatar}>
-                                {member.avatar ? (
-                                  <img
-                                    src={member.avatar}
-                                    alt={member.displayName}
-                                    style={styles.topAvatarImg}
-                                  />
-                                ) : (
-                                  getInitials(member.displayName || "M")
-                                )}
-                              </div>
-
-                              <div style={{ minWidth: 0 }}>
-                                <strong style={styles.topName}>
-                                  {member.displayName}
-                                </strong>
-                                <p style={styles.topMeta}>
+                            <div style={styles.rankRowLeft}>
+                              <div style={styles.rankNumber}>#{index + 1}</div>
+                              <MemberAvatar
+                                src={member.avatar}
+                                name={member.displayName}
+                                size={42}
+                              />
+                              <div style={{ textAlign: "left", minWidth: 0 }}>
+                                <div style={styles.rankName}>{member.displayName}</div>
+                                <div style={styles.rankMeta}>
                                   @{member.username} •{" "}
                                   {member.roleLabel || member.roleName || "Member"}
-                                </p>
+                                </div>
                               </div>
                             </div>
-
-                            <div style={styles.topTime}>
+                            <div style={styles.rankTime}>
                               {formatMinutes(member.weeklyTotalMinutes)}
                             </div>
-                          </div>
+                          </button>
                         ))
                       ) : (
-                        <div style={styles.emptyState}>No activity data yet.</div>
+                        <EmptyState text="No activity data yet." />
                       )}
                     </div>
                   </div>
@@ -1227,182 +1187,170 @@ export default function Dashboard() {
         )}
 
         {user && activeTab === "Members" && (
-          <div style={styles.membersWrap}>
-            <div style={styles.membersTopBar}>
-              <div>
-                <p style={styles.label}>Directory</p>
-                <h2 style={styles.membersTitle}>Members</h2>
-              </div>
+          <div style={styles.pageStack}>
+            <div style={styles.card}>
+              <div style={styles.membersHeader}>
+                <div>
+                  <div style={styles.sectionLabel}>Directory</div>
+                  <div style={styles.sectionTitle}>Members</div>
+                </div>
 
-              <div style={styles.membersActions}>
-                <input
-                  type="text"
-                  placeholder="Search members..."
-                  value={memberSearch}
-                  onChange={(e) => setMemberSearch(e.target.value)}
-                  style={styles.memberSearch}
-                />
+                <div style={styles.membersActions}>
+                  <input
+                    type="text"
+                    placeholder="Search members..."
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                    style={styles.searchInput}
+                  />
 
-                {canRefreshMembers && (
-                  <button
-                    style={styles.refreshButton}
-                    onClick={refreshMembers}
-                    disabled={refreshingMembers}
-                  >
-                    {refreshingMembers ? "Refreshing..." : "Refresh"}
-                  </button>
-                )}
+                  {canRefreshMembers && (
+                    <button
+                      style={styles.secondaryButton}
+                      onClick={refreshMembers}
+                      disabled={refreshingMembers}
+                    >
+                      {refreshingMembers ? "Refreshing..." : "Refresh"}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div style={styles.membersSummaryRow}>
-              <div style={styles.summaryCard}>
-                <p style={styles.label}>Total Members</p>
-                <h2 style={styles.stat}>
+            <div style={styles.summaryGrid2}>
+              <div style={styles.card}>
+                <div style={styles.sectionLabel}>Total Members</div>
+                <div style={styles.bigStat}>
                   {membersLoading ? "..." : filteredMembers.length}
-                </h2>
-                <p style={styles.sub}>Showing synced directory members</p>
+                </div>
+                <div style={styles.mutedText}>Showing synced directory members</div>
               </div>
 
-              <div style={styles.summaryCard}>
-                <p style={styles.label}>Connected User</p>
-                <h2 style={styles.summaryName}>{user.displayName}</h2>
-                <p style={styles.sub}>
+              <div style={styles.card}>
+                <div style={styles.sectionLabel}>Connected User</div>
+                <div style={styles.sectionTitle}>{user.displayName}</div>
+                <div style={styles.mutedText}>
                   {workspaceRoleLabel} • currently signed in
-                </p>
+                </div>
               </div>
             </div>
 
             {membersError && <div style={styles.error}>{membersError}</div>}
 
             {membersLoading ? (
-              <div style={styles.loading}>Loading members...</div>
+              <div style={styles.loadingCard}>Loading members...</div>
             ) : filteredMembers.length > 0 ? (
-              <div style={styles.membersGrid}>
+              <div style={styles.memberGrid}>
                 {filteredMembers.map((member) => (
-                  <div
+                  <button
                     key={member.userId}
-                    style={styles.memberCardClickable}
+                    style={styles.memberCard}
                     onClick={() => loadMemberProfile(member.userId)}
                   >
-                    <div style={styles.memberGlow} />
+                    <div style={styles.memberCardTop}>
+                      <MemberAvatar
+                        src={member.avatar}
+                        name={member.displayName}
+                        size={52}
+                      />
 
-                    <div style={styles.memberAvatar}>
-                      {member.avatar ? (
-                        <img
-                          src={member.avatar}
-                          alt={`${member.displayName} avatar`}
-                          style={styles.memberAvatarImg}
-                        />
-                      ) : (
-                        member.displayName?.charAt(0)?.toUpperCase() || "M"
-                      )}
-                    </div>
-
-                    <div style={styles.memberText}>
-                      <h3 style={styles.memberName}>{member.displayName}</h3>
-                      <p style={styles.memberUsername}>@{member.username}</p>
-
-                      <div style={styles.memberMetaRow}>
-                        <span style={styles.memberBadge}>
-                          {member.roleLabel || member.roleName || "Member"}
-                        </span>
-
-                        {member.departmentLabel && (
-                          <span style={styles.memberBadgeSoft}>
-                            {member.departmentLabel}
-                          </span>
-                        )}
-
-                        {member.isConnectedUser && (
-                          <span style={styles.memberBadgeSoft}>
-                            Connected Account
-                          </span>
-                        )}
-
-                        <span style={styles.memberBadgeSoft}>
-                          {formatMinutes(member.weeklyTotalMinutes || 0)} this week
-                        </span>
+                      <div style={{ textAlign: "left", minWidth: 0 }}>
+                        <div style={styles.memberCardName}>{member.displayName}</div>
+                        <div style={styles.memberCardUser}>@{member.username}</div>
                       </div>
                     </div>
-                  </div>
+
+                    <div style={styles.badgeRow}>
+                      <span style={styles.badge}>
+                        {member.roleLabel || member.roleName || "Member"}
+                      </span>
+
+                      {member.departmentLabel && (
+                        <span style={styles.softBadge}>{member.departmentLabel}</span>
+                      )}
+
+                      {member.isConnectedUser && (
+                        <span style={styles.softBadge}>Connected Account</span>
+                      )}
+
+                      <span style={styles.softBadge}>
+                        {formatMinutes(member.weeklyTotalMinutes || 0)} this week
+                      </span>
+                    </div>
+                  </button>
                 ))}
               </div>
             ) : (
-              <div style={styles.emptyState}>
-                No synced members were found in the directory yet.
-              </div>
+              <EmptyState text="No synced members were found in the directory yet." />
             )}
           </div>
         )}
 
         {user && activeTab === "Sessions" && (
-          <div style={styles.panelStack}>
-            <div style={styles.placeholderCard}>
-              <p style={styles.label}>Sessions</p>
-              <h3 style={styles.bottomTitle}>Training and session management</h3>
-              <p style={styles.sub}>
+          <div style={styles.pageStack}>
+            <div style={styles.card}>
+              <div style={styles.sectionLabel}>Sessions</div>
+              <div style={styles.sectionTitle}>Training and session management</div>
+              <div style={styles.mutedText}>
                 This section is ready for trainings, host claims, attendance,
                 and session history.
-              </p>
+              </div>
             </div>
 
-            <div style={styles.sessionGrid}>
-              <div style={styles.sessionCard}>
-                <p style={styles.label}>Upcoming</p>
-                <h3 style={styles.sectionTitle}>Next scheduled sessions</h3>
+            <div style={styles.twoColGrid}>
+              <div style={styles.card}>
+                <div style={styles.sectionLabel}>Upcoming</div>
+                <div style={styles.sectionTitle}>Next scheduled sessions</div>
 
-                <div style={styles.sessionList}>
-                  <div style={styles.sessionListItem}>
+                <div style={styles.listStack}>
+                  <div style={styles.sessionRow}>
                     <strong>Orientation Training</strong>
                     <span>Today • 7:00 PM</span>
                   </div>
-
-                  <div style={styles.sessionListItem}>
+                  <div style={styles.sessionRow}>
                     <strong>Staff Development</strong>
                     <span>Tomorrow • 6:30 PM</span>
                   </div>
-
-                  <div style={styles.sessionListItem}>
+                  <div style={styles.sessionRow}>
                     <strong>Leadership Review</strong>
                     <span>Friday • 8:00 PM</span>
                   </div>
                 </div>
               </div>
 
-              <div style={styles.sessionCard}>
-                <p style={styles.label}>Status</p>
-                <h3 style={styles.sectionTitle}>Session controls</h3>
+              <div style={styles.card}>
+                <div style={styles.sectionLabel}>Status</div>
+                <div style={styles.sectionTitle}>Session controls</div>
 
-                <div style={styles.settingsList}>
+                <div style={styles.listStack}>
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>Host claiming</strong>
-                      <p style={styles.settingSub}>
+                      <strong>Host claiming</strong>
+                      <div style={styles.settingSub}>
                         Allow one host to claim a live training slot.
-                      </p>
+                      </div>
                     </div>
-                    <div style={styles.toggleOn}>Enabled</div>
+                    <span style={styles.statusOn}>Enabled</span>
                   </div>
 
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>Attendance tracking</strong>
-                      <p style={styles.settingSub}>
+                      <strong>Attendance tracking</strong>
+                      <div style={styles.settingSub}>
                         Track who attended each session.
-                      </p>
+                      </div>
                     </div>
-                    <div style={styles.toggleOn}>Enabled</div>
+                    <span style={styles.statusOn}>Enabled</span>
                   </div>
 
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>Session reminders</strong>
-                      <p style={styles.settingSub}>
+                      <strong>Session reminders</strong>
+                      <div style={styles.settingSub}>
                         Push reminders before scheduled events.
-                      </p>
+                      </div>
                     </div>
-                    <div style={styles.toggleOff}>Soon</div>
+                    <span style={styles.statusOff}>Soon</span>
                   </div>
                 </div>
               </div>
@@ -1411,100 +1359,100 @@ export default function Dashboard() {
         )}
 
         {user && activeTab === "Settings" && (
-          <div style={styles.panelStack}>
-            <div style={styles.placeholderCard}>
-              <p style={styles.label}>Settings</p>
-              <h3 style={styles.bottomTitle}>Workspace configuration</h3>
-              <p style={styles.sub}>
+          <div style={styles.pageStack}>
+            <div style={styles.card}>
+              <div style={styles.sectionLabel}>Settings</div>
+              <div style={styles.sectionTitle}>Workspace configuration</div>
+              <div style={styles.mutedText}>
                 Manage department access, moderation tools, sessions, and future website permissions.
-              </p>
+              </div>
             </div>
 
             {settingsError && <div style={styles.error}>{settingsError}</div>}
             {settingsLoading && (
-              <div style={styles.loading}>Loading workspace settings...</div>
+              <div style={styles.loadingCard}>Loading workspace settings...</div>
             )}
 
             <div style={styles.settingsGrid}>
-              <div style={styles.settingsCard}>
-                <p style={styles.label}>Department Permissions</p>
+              <div style={styles.card}>
+                <div style={styles.sectionLabel}>Department Permissions</div>
 
-                <div style={styles.settingsList}>
+                <div style={styles.listStack}>
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>Warnings system</strong>
-                      <p style={styles.settingSub}>
+                      <strong>Warnings system</strong>
+                      <div style={styles.settingSub}>
                         Current access for your assigned department.
-                      </p>
+                      </div>
                     </div>
-                    <div style={canWarn ? styles.toggleOn : styles.toggleOff}>
+                    <span style={canWarn ? styles.statusOn : styles.statusOff}>
                       {canWarn ? "Allowed" : "No Access"}
-                    </div>
+                    </span>
                   </div>
 
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>Suspension records</strong>
-                      <p style={styles.settingSub}>
+                      <strong>Suspension records</strong>
+                      <div style={styles.settingSub}>
                         Current access for your assigned department.
-                      </p>
+                      </div>
                     </div>
-                    <div style={canSuspend ? styles.toggleOn : styles.toggleOff}>
+                    <span style={canSuspend ? styles.statusOn : styles.statusOff}>
                       {canSuspend ? "Allowed" : "No Access"}
-                    </div>
+                    </span>
                   </div>
 
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>Private staff notes</strong>
-                      <p style={styles.settingSub}>
+                      <strong>Private staff notes</strong>
+                      <div style={styles.settingSub}>
                         Current access for your assigned department.
-                      </p>
+                      </div>
                     </div>
-                    <div style={canAddNotes ? styles.toggleOn : styles.toggleOff}>
+                    <span style={canAddNotes ? styles.statusOn : styles.statusOff}>
                       {canAddNotes ? "Allowed" : "No Access"}
-                    </div>
+                    </span>
                   </div>
 
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>Activity visibility</strong>
-                      <p style={styles.settingSub}>
+                      <strong>Activity visibility</strong>
+                      <div style={styles.settingSub}>
                         View weekly activity and summaries.
-                      </p>
+                      </div>
                     </div>
-                    <div style={canViewActivity ? styles.toggleOn : styles.toggleOff}>
+                    <span style={canViewActivity ? styles.statusOn : styles.statusOff}>
                       {canViewActivity ? "Allowed" : "No Access"}
-                    </div>
+                    </span>
                   </div>
 
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>Website controls</strong>
-                      <p style={styles.settingSub}>
+                      <strong>Website controls</strong>
+                      <div style={styles.settingSub}>
                         Reserved for future communications tools.
-                      </p>
+                      </div>
                     </div>
-                    <div style={canManageWebsite ? styles.toggleOn : styles.toggleOff}>
+                    <span style={canManageWebsite ? styles.statusOn : styles.statusOff}>
                       {canManageWebsite ? "Allowed" : "Soon"}
-                    </div>
+                    </span>
                   </div>
                 </div>
               </div>
 
-              <div style={styles.settingsCard}>
-                <p style={styles.label}>Department Manager</p>
+              <div style={styles.card}>
+                <div style={styles.sectionLabel}>Department Manager</div>
 
-                <div style={styles.settingsList}>
-                  <div style={styles.settingRowColumn}>
-                    <strong style={styles.settingTitle}>Department</strong>
+                <div style={styles.formStack}>
+                  <div>
+                    <label style={styles.inputLabel}>Department</label>
                     <select
-                      value={selectedDepartmentKey}
+                      value={safeDepartmentKey}
                       onChange={(e) => setSelectedDepartmentKey(e.target.value)}
-                      style={styles.departmentSelect}
+                      style={styles.select}
                       disabled={!canManageSettings}
                     >
-                      {Object.values(departmentCollection || {}).map((department) => (
+                      {departmentList.map((department) => (
                         <option key={department.key} value={department.key}>
                           {department.label}
                         </option>
@@ -1512,12 +1460,12 @@ export default function Dashboard() {
                     </select>
                   </div>
 
-                  <div style={styles.settingRowColumn}>
-                    <strong style={styles.settingTitle}>Add member</strong>
+                  <div>
+                    <label style={styles.inputLabel}>Add member</label>
                     <select
                       value={selectedDepartmentMemberId}
                       onChange={(e) => setSelectedDepartmentMemberId(e.target.value)}
-                      style={styles.departmentSelect}
+                      style={styles.select}
                       disabled={!canManageSettings}
                     >
                       <option value="">Select a member...</option>
@@ -1541,17 +1489,15 @@ export default function Dashboard() {
 
                   {selectedDepartment && (
                     <>
-                      <div style={styles.departmentPermissionsCard}>
-                        <strong style={styles.sectionTitle}>
-                          {selectedDepartment.label}
-                        </strong>
+                      <div style={styles.subCard}>
+                        <div style={styles.sectionTitle}>{selectedDepartment.label}</div>
 
-                        <div style={styles.permissionBadgeRow}>
+                        <div style={styles.badgeRow}>
                           <span
                             style={
                               selectedDepartment.permissions?.canWarn
-                                ? styles.permissionBadgeOn
-                                : styles.permissionBadgeOff
+                                ? styles.permissionOn
+                                : styles.permissionOff
                             }
                           >
                             Warn
@@ -1559,8 +1505,8 @@ export default function Dashboard() {
                           <span
                             style={
                               selectedDepartment.permissions?.canSuspend
-                                ? styles.permissionBadgeOn
-                                : styles.permissionBadgeOff
+                                ? styles.permissionOn
+                                : styles.permissionOff
                             }
                           >
                             Suspend
@@ -1568,8 +1514,8 @@ export default function Dashboard() {
                           <span
                             style={
                               selectedDepartment.permissions?.canAddNotes
-                                ? styles.permissionBadgeOn
-                                : styles.permissionBadgeOff
+                                ? styles.permissionOn
+                                : styles.permissionOff
                             }
                           >
                             Notes
@@ -1577,8 +1523,8 @@ export default function Dashboard() {
                           <span
                             style={
                               selectedDepartment.permissions?.canViewActivity
-                                ? styles.permissionBadgeOn
-                                : styles.permissionBadgeOff
+                                ? styles.permissionOn
+                                : styles.permissionOff
                             }
                           >
                             View Activity
@@ -1586,8 +1532,8 @@ export default function Dashboard() {
                           <span
                             style={
                               selectedDepartment.permissions?.canManageWebsite
-                                ? styles.permissionBadgeOn
-                                : styles.permissionBadgeOff
+                                ? styles.permissionOn
+                                : styles.permissionOff
                             }
                           >
                             Website
@@ -1595,38 +1541,29 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      <div style={styles.departmentMemberList}>
+                      <div style={styles.listStack}>
                         {Array.isArray(selectedDepartment.members) &&
                         selectedDepartment.members.length > 0 ? (
                           selectedDepartment.members.map((member) => (
-                            <div key={member.userId} style={styles.departmentMemberRow}>
-                              <div style={styles.departmentMemberLeft}>
-                                <div style={styles.departmentMemberAvatar}>
-                                  {member.avatar ? (
-                                    <img
-                                      src={member.avatar}
-                                      alt={member.displayName}
-                                      style={styles.departmentMemberAvatarImg}
-                                    />
-                                  ) : (
-                                    getInitials(member.displayName || "M")
-                                  )}
-                                </div>
-
+                            <div key={member.userId} style={styles.departmentRow}>
+                              <div style={styles.departmentRowLeft}>
+                                <MemberAvatar
+                                  src={member.avatar}
+                                  name={member.displayName}
+                                  size={42}
+                                />
                                 <div>
-                                  <strong style={styles.departmentMemberName}>
-                                    {member.displayName}
-                                  </strong>
-                                  <p style={styles.departmentMemberMeta}>
+                                  <div style={styles.rankName}>{member.displayName}</div>
+                                  <div style={styles.rankMeta}>
                                     @{member.username} •{" "}
                                     {member.roleLabel || member.roleName || "Member"}
-                                  </p>
+                                  </div>
                                 </div>
                               </div>
 
                               {canManageSettings && (
                                 <button
-                                  style={styles.deleteItemButton}
+                                  style={styles.dangerGhostButton}
                                   onClick={() =>
                                     removeDepartmentMember(
                                       selectedDepartment.key,
@@ -1643,9 +1580,7 @@ export default function Dashboard() {
                             </div>
                           ))
                         ) : (
-                          <div style={styles.drawerEmpty}>
-                            No members in this department yet.
-                          </div>
+                          <EmptyState text="No members in this department yet." />
                         )}
                       </div>
                     </>
@@ -1653,59 +1588,59 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div style={styles.settingsCard}>
-                <p style={styles.label}>Workspace</p>
+              <div style={styles.card}>
+                <div style={styles.sectionLabel}>Workspace</div>
 
-                <div style={styles.settingsList}>
+                <div style={styles.listStack}>
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>Auto refresh members</strong>
-                      <p style={styles.settingSub}>
+                      <strong>Auto refresh members</strong>
+                      <div style={styles.settingSub}>
                         Refresh synced member directory on demand.
-                      </p>
+                      </div>
                     </div>
-                    <div style={styles.toggleOn}>
+                    <span style={styles.statusOn}>
                       {canRefreshMembers ? "Allowed" : "Limited"}
-                    </div>
+                    </span>
                   </div>
 
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>Department</strong>
-                      <p style={styles.settingSub}>
+                      <strong>Department</strong>
+                      <div style={styles.settingSub}>
                         Your currently assigned internal team.
-                      </p>
+                      </div>
                     </div>
-                    <div style={styles.toggleOff}>
+                    <span style={styles.statusOff}>
                       {workspaceAccess?.viewer?.departmentLabel || "No Department"}
-                    </div>
+                    </span>
                   </div>
 
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>Activity quotas</strong>
-                      <p style={styles.settingSub}>
+                      <strong>Activity quotas</strong>
+                      <div style={styles.settingSub}>
                         Weekly target currently set to{" "}
                         {activitySummary.targetMinutes || 30} minutes.
-                      </p>
+                      </div>
                     </div>
-                    <div style={styles.toggleOn}>
+                    <span style={styles.statusOn}>
                       {activitySummary.targetMinutes || 30}m
-                    </div>
+                    </span>
                   </div>
 
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>Member sync status</strong>
-                      <p style={styles.settingSub}>
+                      <strong>Member sync status</strong>
+                      <div style={styles.settingSub}>
                         View last successful workspace sync.
-                      </p>
+                      </div>
                     </div>
-                    <div style={styles.toggleOff}>
+                    <span style={styles.statusOff}>
                       {lastMemberSync
                         ? new Date(lastMemberSync).toLocaleDateString()
                         : "Pending"}
-                    </div>
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1715,4 +1650,877 @@ export default function Dashboard() {
       </main>
     </div>
   );
+}
+
+function getStyles({ isMobile, sidebarOpen }) {
+  const sidebarWidth = 260;
+
+  return {
+    page: {
+      minHeight: "100vh",
+      display: "flex",
+      background:
+        "radial-gradient(circle at top left, rgba(202,232,207,0.7), transparent 35%), #edf6ef",
+      color: "#17331f",
+    },
+
+    overlay: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(13, 22, 17, 0.28)",
+      zIndex: 20,
+    },
+
+    sidebar: {
+      position: isMobile ? "fixed" : "sticky",
+      top: 0,
+      left: 0,
+      width: isMobile ? sidebarWidth : sidebarWidth,
+      height: "100vh",
+      transform: isMobile
+        ? sidebarOpen
+          ? "translateX(0)"
+          : "translateX(-100%)"
+        : "translateX(0)",
+      transition: "transform 0.25s ease",
+      zIndex: 30,
+      padding: 16,
+      boxSizing: "border-box",
+      flexShrink: 0,
+    },
+
+    sidebarInner: {
+      height: "100%",
+      borderRadius: 26,
+      background:
+        "linear-gradient(180deg, rgba(15,26,20,0.98), rgba(24,42,31,0.96))",
+      color: "#fff",
+      padding: 18,
+      boxSizing: "border-box",
+      boxShadow: "0 24px 50px rgba(14, 26, 18, 0.22)",
+      border: "1px solid rgba(255,255,255,0.06)",
+      display: "flex",
+      flexDirection: "column",
+      gap: 18,
+    },
+
+    logoWrap: {
+      padding: "6px 4px 10px",
+    },
+
+    logo: {
+      width: "100%",
+      maxWidth: 155,
+      objectFit: "contain",
+      display: "block",
+    },
+
+    profileCard: {
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      background: "rgba(255,255,255,0.06)",
+      border: "1px solid rgba(255,255,255,0.08)",
+      borderRadius: 18,
+      padding: 12,
+    },
+
+    profileName: {
+      fontWeight: 700,
+      fontSize: 14,
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+    },
+
+    profileUser: {
+      fontSize: 12,
+      color: "rgba(255,255,255,0.68)",
+      marginTop: 2,
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+    },
+
+    profileRole: {
+      fontSize: 11,
+      color: "#b7f3c9",
+      marginTop: 4,
+    },
+
+    navList: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 8,
+      marginTop: 6,
+    },
+
+    navButton: {
+      border: "none",
+      background: "transparent",
+      color: "rgba(255,255,255,0.78)",
+      padding: "12px 14px",
+      borderRadius: 14,
+      textAlign: "left",
+      cursor: "pointer",
+      fontSize: 14,
+      fontWeight: 600,
+      transition: "all 0.2s ease",
+    },
+
+    navButtonActive: {
+      border: "1px solid rgba(183,243,201,0.3)",
+      background: "linear-gradient(135deg, rgba(183,243,201,0.18), rgba(255,255,255,0.06))",
+      color: "#fff",
+      padding: "12px 14px",
+      borderRadius: 14,
+      textAlign: "left",
+      cursor: "pointer",
+      fontSize: 14,
+      fontWeight: 700,
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
+    },
+
+    main: {
+      flex: 1,
+      minWidth: 0,
+      padding: isMobile ? "18px 16px 28px" : "24px 26px 30px",
+      marginLeft: isMobile ? 0 : 0,
+    },
+
+    topBar: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 22,
+    },
+
+    topBarLeft: {
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+    },
+
+    menuButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      border: "1px solid rgba(23,51,31,0.08)",
+      background: "rgba(255,255,255,0.84)",
+      cursor: "pointer",
+      fontSize: 18,
+      boxShadow: "0 10px 25px rgba(22, 48, 30, 0.06)",
+    },
+
+    kicker: {
+      fontSize: 12,
+      textTransform: "uppercase",
+      letterSpacing: "0.12em",
+      color: "#6d8672",
+      fontWeight: 700,
+      marginBottom: 5,
+    },
+
+    pageTitle: {
+      margin: 0,
+      fontSize: isMobile ? 26 : 34,
+      lineHeight: 1.05,
+      fontWeight: 800,
+      color: "#17331f",
+    },
+
+    pageStack: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 18,
+    },
+
+    card: {
+      background: "rgba(255,255,255,0.82)",
+      backdropFilter: "blur(10px)",
+      borderRadius: 22,
+      padding: 20,
+      border: "1px solid rgba(23,51,31,0.08)",
+      boxShadow: "0 18px 45px rgba(22, 48, 30, 0.06)",
+    },
+
+    heroCard: {
+      minHeight: 220,
+    },
+
+    heroInner: {
+      display: "flex",
+      alignItems: "center",
+      gap: 16,
+      marginTop: 10,
+      flexWrap: "wrap",
+    },
+
+    heroName: {
+      fontSize: 24,
+      fontWeight: 800,
+      color: "#17331f",
+      marginBottom: 6,
+    },
+
+    heroText: {
+      fontSize: 14,
+      color: "#5d7262",
+      marginBottom: 4,
+    },
+
+    sectionLabel: {
+      fontSize: 12,
+      fontWeight: 800,
+      textTransform: "uppercase",
+      letterSpacing: "0.12em",
+      color: "#739178",
+      marginBottom: 10,
+    },
+
+    sectionTitle: {
+      fontSize: 22,
+      fontWeight: 800,
+      color: "#17331f",
+      lineHeight: 1.15,
+    },
+
+    bigStat: {
+      fontSize: 34,
+      fontWeight: 800,
+      color: "#17331f",
+      marginBottom: 8,
+    },
+
+    mutedText: {
+      fontSize: 14,
+      lineHeight: 1.55,
+      color: "#5d7262",
+    },
+
+    summaryGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1.5fr 1fr 1fr",
+      gap: 18,
+    },
+
+    summaryGrid2: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+      gap: 18,
+    },
+
+    twoColGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1.1fr 1fr",
+      gap: 18,
+    },
+
+    metricGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "repeat(4, minmax(0, 1fr))",
+      gap: 16,
+    },
+
+    metricCard: {
+      background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(244,250,245,0.95))",
+      borderRadius: 18,
+      padding: 18,
+      border: "1px solid rgba(23,51,31,0.08)",
+      boxShadow: "0 12px 30px rgba(22, 48, 30, 0.05)",
+    },
+
+    metricLabel: {
+      fontSize: 12,
+      textTransform: "uppercase",
+      letterSpacing: "0.08em",
+      color: "#739178",
+      fontWeight: 700,
+      marginBottom: 8,
+    },
+
+    metricValue: {
+      fontSize: 28,
+      fontWeight: 800,
+      color: "#17331f",
+      marginBottom: 6,
+    },
+
+    metricSub: {
+      fontSize: 13,
+      color: "#5d7262",
+      lineHeight: 1.45,
+    },
+
+    statsGrid4: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+      gap: 14,
+    },
+
+    pillGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))",
+      gap: 12,
+      marginTop: 10,
+    },
+
+    infoPill: {
+      borderRadius: 16,
+      background: "rgba(237,246,239,0.95)",
+      border: "1px solid rgba(23,51,31,0.08)",
+      padding: 14,
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: 12,
+      color: "#27432e",
+      fontSize: 14,
+      fontWeight: 600,
+    },
+
+    membersHeader: {
+      display: "flex",
+      alignItems: isMobile ? "stretch" : "center",
+      justifyContent: "space-between",
+      gap: 14,
+      flexDirection: isMobile ? "column" : "row",
+    },
+
+    membersActions: {
+      display: "flex",
+      gap: 10,
+      flexWrap: "wrap",
+    },
+
+    searchInput: {
+      minWidth: isMobile ? "100%" : 240,
+      padding: "12px 14px",
+      borderRadius: 14,
+      border: "1px solid rgba(23,51,31,0.12)",
+      background: "rgba(255,255,255,0.9)",
+      color: "#17331f",
+      outline: "none",
+      fontSize: 14,
+    },
+
+    memberGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile
+        ? "1fr"
+        : "repeat(auto-fit, minmax(280px, 1fr))",
+      gap: 16,
+    },
+
+    memberCard: {
+      border: "1px solid rgba(23,51,31,0.08)",
+      background: "rgba(255,255,255,0.86)",
+      borderRadius: 20,
+      padding: 16,
+      cursor: "pointer",
+      textAlign: "left",
+      boxShadow: "0 14px 30px rgba(22, 48, 30, 0.05)",
+    },
+
+    memberCardTop: {
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      marginBottom: 14,
+    },
+
+    memberCardName: {
+      fontSize: 16,
+      fontWeight: 800,
+      color: "#17331f",
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+    },
+
+    memberCardUser: {
+      fontSize: 13,
+      color: "#637767",
+      marginTop: 4,
+    },
+
+    badgeRow: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 10,
+    },
+
+    badge: {
+      display: "inline-flex",
+      alignItems: "center",
+      padding: "7px 10px",
+      borderRadius: 999,
+      background: "#17331f",
+      color: "#fff",
+      fontSize: 12,
+      fontWeight: 700,
+    },
+
+    softBadge: {
+      display: "inline-flex",
+      alignItems: "center",
+      padding: "7px 10px",
+      borderRadius: 999,
+      background: "#e4f2e7",
+      color: "#21422a",
+      fontSize: 12,
+      fontWeight: 700,
+      border: "1px solid rgba(23,51,31,0.08)",
+    },
+
+    barChart: {
+      display: "grid",
+      gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+      gap: 12,
+      alignItems: "end",
+      marginTop: 10,
+    },
+
+    barChartLarge: {
+      display: "grid",
+      gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+      gap: 12,
+      alignItems: "end",
+      marginTop: 14,
+    },
+
+    barItem: {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: 8,
+    },
+
+    barValue: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: "#5a7260",
+    },
+
+    barTrack: {
+      width: "100%",
+      maxWidth: 42,
+      height: 120,
+      borderRadius: 999,
+      background: "rgba(223,236,226,0.9)",
+      display: "flex",
+      alignItems: "flex-end",
+      justifyContent: "center",
+      overflow: "hidden",
+      border: "1px solid rgba(23,51,31,0.06)",
+    },
+
+    barFill: {
+      width: "100%",
+      borderRadius: 999,
+      background:
+        "linear-gradient(180deg, rgba(133,211,154,0.9), rgba(34,111,58,0.95))",
+    },
+
+    barLabel: {
+      fontSize: 12,
+      fontWeight: 800,
+      color: "#48604e",
+    },
+
+    listStack: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+      marginTop: 14,
+    },
+
+    rankRow: {
+      width: "100%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+      border: "1px solid rgba(23,51,31,0.08)",
+      background: "rgba(255,255,255,0.84)",
+      borderRadius: 18,
+      padding: 12,
+      cursor: "pointer",
+      textAlign: "left",
+    },
+
+    rankRowLeft: {
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      minWidth: 0,
+    },
+
+    rankNumber: {
+      minWidth: 38,
+      height: 38,
+      borderRadius: 12,
+      background: "#edf6ef",
+      border: "1px solid rgba(23,51,31,0.08)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontWeight: 800,
+      color: "#21422a",
+      fontSize: 13,
+    },
+
+    rankName: {
+      fontSize: 14,
+      fontWeight: 800,
+      color: "#17331f",
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+    },
+
+    rankMeta: {
+      fontSize: 12,
+      color: "#617666",
+      marginTop: 3,
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+    },
+
+    rankTime: {
+      fontSize: 14,
+      fontWeight: 800,
+      color: "#17331f",
+      whiteSpace: "nowrap",
+    },
+
+    sessionRow: {
+      borderRadius: 16,
+      border: "1px solid rgba(23,51,31,0.08)",
+      background: "rgba(255,255,255,0.86)",
+      padding: 14,
+      display: "flex",
+      justifyContent: "space-between",
+      gap: 14,
+      alignItems: "center",
+      color: "#27432e",
+      fontSize: 14,
+      flexWrap: "wrap",
+    },
+
+    settingsGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1fr 1.15fr 1fr",
+      gap: 18,
+    },
+
+    settingRow: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: 12,
+      padding: 14,
+      borderRadius: 16,
+      background: "rgba(255,255,255,0.72)",
+      border: "1px solid rgba(23,51,31,0.08)",
+      flexWrap: "wrap",
+    },
+
+    settingSub: {
+      fontSize: 13,
+      lineHeight: 1.45,
+      color: "#5c7260",
+      marginTop: 4,
+    },
+
+    statusOn: {
+      padding: "7px 10px",
+      borderRadius: 999,
+      background: "#dff5e4",
+      color: "#1f6a36",
+      fontSize: 12,
+      fontWeight: 800,
+      border: "1px solid rgba(31,106,54,0.12)",
+      whiteSpace: "nowrap",
+    },
+
+    statusOff: {
+      padding: "7px 10px",
+      borderRadius: 999,
+      background: "#eef1ef",
+      color: "#6a756d",
+      fontSize: 12,
+      fontWeight: 800,
+      border: "1px solid rgba(23,51,31,0.08)",
+      whiteSpace: "nowrap",
+    },
+
+    formStack: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 14,
+    },
+
+    inputLabel: {
+      display: "block",
+      fontSize: 12,
+      fontWeight: 800,
+      textTransform: "uppercase",
+      letterSpacing: "0.08em",
+      color: "#6d8672",
+      marginBottom: 8,
+    },
+
+    select: {
+      width: "100%",
+      padding: "12px 14px",
+      borderRadius: 14,
+      border: "1px solid rgba(23,51,31,0.12)",
+      background: "rgba(255,255,255,0.92)",
+      fontSize: 14,
+      color: "#17331f",
+      outline: "none",
+      boxSizing: "border-box",
+    },
+
+    subCard: {
+      borderRadius: 18,
+      background: "rgba(237,246,239,0.95)",
+      border: "1px solid rgba(23,51,31,0.08)",
+      padding: 16,
+    },
+
+    permissionOn: {
+      display: "inline-flex",
+      alignItems: "center",
+      padding: "7px 10px",
+      borderRadius: 999,
+      background: "#dff5e4",
+      color: "#1f6a36",
+      fontSize: 12,
+      fontWeight: 800,
+      border: "1px solid rgba(31,106,54,0.12)",
+    },
+
+    permissionOff: {
+      display: "inline-flex",
+      alignItems: "center",
+      padding: "7px 10px",
+      borderRadius: 999,
+      background: "#eef1ef",
+      color: "#6a756d",
+      fontSize: 12,
+      fontWeight: 800,
+      border: "1px solid rgba(23,51,31,0.08)",
+    },
+
+    departmentRow: {
+      display: "flex",
+      justifyContent: "space-between",
+      gap: 12,
+      alignItems: "center",
+      padding: 12,
+      borderRadius: 16,
+      border: "1px solid rgba(23,51,31,0.08)",
+      background: "rgba(255,255,255,0.82)",
+      flexWrap: "wrap",
+    },
+
+    departmentRowLeft: {
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      minWidth: 0,
+    },
+
+    primaryButton: {
+      border: "none",
+      background: "linear-gradient(135deg, #17331f, #295238)",
+      color: "#fff",
+      padding: "12px 16px",
+      borderRadius: 14,
+      fontWeight: 800,
+      fontSize: 14,
+      cursor: "pointer",
+      boxShadow: "0 14px 26px rgba(22,48,30,0.12)",
+    },
+
+    secondaryButton: {
+      border: "1px solid rgba(23,51,31,0.12)",
+      background: "rgba(255,255,255,0.9)",
+      color: "#17331f",
+      padding: "12px 16px",
+      borderRadius: 14,
+      fontWeight: 700,
+      fontSize: 14,
+      cursor: "pointer",
+    },
+
+    dangerGhostButton: {
+      border: "1px solid rgba(179,60,60,0.15)",
+      background: "rgba(255,245,245,0.9)",
+      color: "#b24242",
+      padding: "8px 12px",
+      borderRadius: 12,
+      fontWeight: 700,
+      fontSize: 12,
+      cursor: "pointer",
+    },
+
+    iconButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      border: "1px solid rgba(23,51,31,0.08)",
+      background: "rgba(255,255,255,0.9)",
+      color: "#17331f",
+      fontSize: 16,
+      cursor: "pointer",
+      flexShrink: 0,
+    },
+
+    drawerOverlay: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(13, 22, 17, 0.34)",
+      zIndex: 40,
+    },
+
+    drawer: {
+      position: "fixed",
+      top: 0,
+      right: 0,
+      width: isMobile ? "100%" : "min(920px, 92vw)",
+      height: "100vh",
+      background: "#f4faf5",
+      zIndex: 50,
+      overflowY: "auto",
+      boxSizing: "border-box",
+      padding: isMobile ? 18 : 24,
+      boxShadow: "-24px 0 60px rgba(14,26,18,0.18)",
+    },
+
+    drawerHeader: {
+      display: "flex",
+      justifyContent: "space-between",
+      gap: 12,
+      alignItems: "flex-start",
+      marginBottom: 18,
+    },
+
+    drawerHeaderLeft: {
+      display: "flex",
+      gap: 14,
+      alignItems: "center",
+      minWidth: 0,
+    },
+
+    drawerTitle: {
+      margin: 0,
+      fontSize: 24,
+      lineHeight: 1.1,
+      fontWeight: 800,
+      color: "#17331f",
+    },
+
+    drawerSubtitle: {
+      margin: "5px 0 0",
+      fontSize: 14,
+      color: "#667a6b",
+    },
+
+    drawerBody: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 16,
+      paddingBottom: 24,
+    },
+
+    drawerColumns: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+      gap: 16,
+    },
+
+    panel: {
+      borderRadius: 22,
+      background: "rgba(255,255,255,0.88)",
+      border: "1px solid rgba(23,51,31,0.08)",
+      boxShadow: "0 16px 40px rgba(22,48,30,0.05)",
+      padding: 18,
+    },
+
+    textarea: {
+      width: "100%",
+      minHeight: 96,
+      borderRadius: 16,
+      border: "1px solid rgba(23,51,31,0.12)",
+      background: "rgba(255,255,255,0.95)",
+      padding: 14,
+      resize: "vertical",
+      fontSize: 14,
+      color: "#17331f",
+      boxSizing: "border-box",
+      outline: "none",
+    },
+
+    listCard: {
+      borderRadius: 16,
+      border: "1px solid rgba(23,51,31,0.08)",
+      background: "rgba(255,255,255,0.84)",
+      padding: 14,
+    },
+
+    listCardHeader: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: 12,
+      marginBottom: 8,
+      flexWrap: "wrap",
+    },
+
+    listCardText: {
+      fontSize: 14,
+      lineHeight: 1.55,
+      color: "#27432e",
+      whiteSpace: "pre-wrap",
+      wordBreak: "break-word",
+    },
+
+    listCardMeta: {
+      fontSize: 12,
+      color: "#6b7f70",
+      marginTop: 10,
+    },
+
+    loadingCard: {
+      padding: 18,
+      borderRadius: 18,
+      background: "rgba(255,255,255,0.82)",
+      border: "1px solid rgba(23,51,31,0.08)",
+      color: "#5e7362",
+      fontWeight: 600,
+    },
+
+    loading: {
+      padding: 18,
+      borderRadius: 18,
+      background: "rgba(255,255,255,0.82)",
+      border: "1px solid rgba(23,51,31,0.08)",
+      color: "#5e7362",
+      fontWeight: 600,
+    },
+
+    error: {
+      padding: 14,
+      borderRadius: 16,
+      background: "rgba(255,235,235,0.95)",
+      border: "1px solid rgba(194,74,74,0.14)",
+      color: "#a33b3b",
+      fontWeight: 600,
+    },
+  };
 }
