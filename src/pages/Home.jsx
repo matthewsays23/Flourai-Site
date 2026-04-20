@@ -44,12 +44,12 @@ export default function Home() {
       }
 
       window.location.href = `${API_BASE}/api/auth/roblox/start`;
-    } catch (err) {
+    } catch {
       window.location.href = `${API_BASE}/api/auth/roblox/start`;
     }
   };
 
-  const styles = createStyles({ isMobile, isTablet, menuOpen });
+  const styles = createStyles({ isMobile, isTablet });
 
   return (
     <div style={styles.page}>
@@ -236,7 +236,7 @@ export default function Home() {
   );
 }
 
-function createStyles({ isMobile, isTablet, menuOpen }) {
+function createStyles({ isMobile, isTablet }) {
   const compact = isMobile || isTablet;
 
   return {

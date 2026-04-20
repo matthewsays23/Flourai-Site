@@ -66,6 +66,24 @@ async function parseJsonSafe(res) {
   }
 }
 
+async function apiRequest(path, options = {}, fallbackError = "Request failed") {
+  const res = await fetch(`${API_BASE}${path}`, {
+    credentials: "include",
+    ...options,
+    headers: {
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(options.headers || {}),
+    },
+  });
+  const data = await parseJsonSafe(res);
+
+  if (!res.ok) {
+    throw new Error(data.error || fallbackError);
+  }
+
+  return data;
+}
+
 function MemberAvatar({ src, name, size = 44, style = {} }) {
   const initials = getInitials(name || "M");
 
@@ -193,26 +211,17 @@ export default function Dashboard() {
         setInitialLoading(true);
         setError("");
 
-        const meRes = await fetch(`${API_BASE}/api/auth/me`, {
-          credentials: "include",
-        });
-        const meData = await parseJsonSafe(meRes);
-
-        if (!meRes.ok) {
-          throw new Error(meData.error || "Failed to load user");
-        }
+        const meData = await apiRequest("/api/auth/me", {}, "Failed to load user");
 
         setUser(meData.user || null);
 
         if (meData.user?.robloxId) {
           try {
-            const avatarRes = await fetch(
-              `${API_BASE}/api/auth/avatar/${meData.user.robloxId}`,
-              {
-                credentials: "include",
-              }
+            const avatarData = await apiRequest(
+              `/api/auth/avatar/${meData.user.robloxId}`,
+              {},
+              "Failed to load avatar"
             );
-            const avatarData = await parseJsonSafe(avatarRes);
 
             if (avatarData.ok && avatarData.imageUrl) {
               setAvatar(avatarData.imageUrl);
@@ -236,14 +245,11 @@ export default function Dashboard() {
       setAccessLoading(true);
       setAccessError("");
 
-      const res = await fetch(`${API_BASE}/api/workspace/access`, {
-        credentials: "include",
-      });
-      const data = await parseJsonSafe(res);
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to load workspace access");
-      }
+      const data = await apiRequest(
+        "/api/workspace/access",
+        {},
+        "Failed to load workspace access"
+      );
 
       setWorkspaceAccess(data);
     } catch (err) {
@@ -258,14 +264,11 @@ export default function Dashboard() {
       setMembersLoading(true);
       setMembersError("");
 
-      const res = await fetch(`${API_BASE}/api/workspace/members`, {
-        credentials: "include",
-      });
-      const data = await parseJsonSafe(res);
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to load members");
-      }
+      const data = await apiRequest(
+        "/api/workspace/members",
+        {},
+        "Failed to load members"
+      );
 
       setMembers(Array.isArray(data.members) ? data.members : []);
       setMembersLoaded(true);
@@ -281,14 +284,11 @@ export default function Dashboard() {
       setActivityLoading(true);
       setActivityError("");
 
-      const res = await fetch(`${API_BASE}/api/workspace/activity/overview`, {
-        credentials: "include",
-      });
-      const data = await parseJsonSafe(res);
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to load activity overview");
-      }
+      const data = await apiRequest(
+        "/api/workspace/activity/overview",
+        {},
+        "Failed to load activity overview"
+      );
 
       setActivityOverview(data);
     } catch (err) {
@@ -303,14 +303,11 @@ export default function Dashboard() {
       setSettingsLoading(true);
       setSettingsError("");
 
-      const res = await fetch(`${API_BASE}/api/workspace/settings`, {
-        credentials: "include",
-      });
-      const data = await parseJsonSafe(res);
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to load workspace settings");
-      }
+      const data = await apiRequest(
+        "/api/workspace/settings",
+        {},
+        "Failed to load workspace settings"
+      );
 
       setWorkspaceSettings(data.settings || null);
     } catch (err) {
@@ -325,8 +322,8 @@ export default function Dashboard() {
     loadWorkspaceAccess();
     loadActivityOverview();
     loadWorkspaceSettings();
-    if (!membersLoaded) loadMembers();
-  }, [user, membersLoaded]);
+    loadMembers();
+  }, [user]);
 
   const loadMemberProfile = async (userId) => {
     if (!userId) return;
@@ -335,14 +332,11 @@ export default function Dashboard() {
       setSelectedMemberLoading(true);
       setSelectedMemberError("");
 
-      const res = await fetch(`${API_BASE}/api/workspace/members/${userId}/profile`, {
-        credentials: "include",
-      });
-      const data = await parseJsonSafe(res);
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to load member profile");
-      }
+      const data = await apiRequest(
+        `/api/workspace/members/${userId}/profile`,
+        {},
+        "Failed to load member profile"
+      );
 
       setSelectedMemberId(userId);
       setSelectedMemberProfile(data.member || null);
@@ -361,19 +355,11 @@ export default function Dashboard() {
       setRefreshingMembers(true);
       setMembersError("");
 
-      const refreshRes = await fetch(`${API_BASE}/api/workspace/members/refresh`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      const refreshData = await parseJsonSafe(refreshRes);
-
-      if (!refreshRes.ok) {
-        throw new Error(refreshData.error || "Failed to refresh members");
-      }
+      await apiRequest(
+        "/api/workspace/members/refresh",
+        { method: "POST" },
+        "Failed to refresh members"
+      );
 
       setMembersLoaded(false);
 
@@ -401,25 +387,16 @@ export default function Dashboard() {
       setAssigningDepartment(true);
       setSettingsError("");
 
-      const res = await fetch(
-        `${API_BASE}/api/workspace/settings/departments/${selectedDepartmentKey}/members`,
+      const data = await apiRequest(
+        `/api/workspace/settings/departments/${selectedDepartmentKey}/members`,
         {
           method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify({
             userId: selectedDepartmentMemberId,
           }),
-        }
+        },
+        "Failed to assign member"
       );
-
-      const data = await parseJsonSafe(res);
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to assign member");
-      }
 
       setWorkspaceSettings((prev) => ({
         ...(prev || {}),
@@ -443,19 +420,11 @@ export default function Dashboard() {
       setRemovingDepartmentUserId(userId);
       setSettingsError("");
 
-      const res = await fetch(
-        `${API_BASE}/api/workspace/settings/departments/${departmentKey}/members/${userId}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        }
+      const data = await apiRequest(
+        `/api/workspace/settings/departments/${departmentKey}/members/${userId}`,
+        { method: "DELETE" },
+        "Failed to remove member"
       );
-
-      const data = await parseJsonSafe(res);
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to remove member");
-      }
 
       setWorkspaceSettings((prev) => ({
         ...(prev || {}),
@@ -514,23 +483,14 @@ export default function Dashboard() {
       config.setSaving(true);
       setSelectedMemberError("");
 
-      const res = await fetch(
-        `${API_BASE}/api/workspace/members/${selectedMemberId}/${config.endpoint}`,
+      const data = await apiRequest(
+        `/api/workspace/members/${selectedMemberId}/${config.endpoint}`,
         {
           method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify(config.body),
-        }
+        },
+        `Failed to add ${type}`
       );
-
-      const data = await parseJsonSafe(res);
-
-      if (!res.ok) {
-        throw new Error(data.error || `Failed to add ${type}`);
-      }
 
       setSelectedMemberProfile(data.member || null);
       config.clear();
@@ -568,19 +528,11 @@ export default function Dashboard() {
       setDeletingItemId(itemId);
       setSelectedMemberError("");
 
-      const res = await fetch(
-        `${API_BASE}/api/workspace/members/${selectedMemberId}/${config.endpoint}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        }
+      const data = await apiRequest(
+        `/api/workspace/members/${selectedMemberId}/${config.endpoint}`,
+        { method: "DELETE" },
+        config.errorText
       );
-
-      const data = await parseJsonSafe(res);
-
-      if (!res.ok) {
-        throw new Error(data.error || config.errorText);
-      }
 
       setSelectedMemberProfile(data.member || null);
 
@@ -876,7 +828,7 @@ export default function Dashboard() {
                     value={noteInput}
                     onChange={(e) => setNoteInput(e.target.value)}
                     placeholder="Add a private staff note..."
-                    style={{ ...styles.textarea, minHeight: 120 }}
+                    style={{ ...styles.textarea, minHeight: 160 }}
                     disabled={!canAddNotes || savingNote}
                   />
                   {canAddNotes && (
@@ -2377,14 +2329,16 @@ function getStyles({ isMobile, isTablet, sidebarOpen }) {
 
     primaryButton: {
       border: "none",
-      background: "linear-gradient(135deg, #17331f, #295238)",
+      background: "linear-gradient(135deg, #17331f, #21462d)",
       color: "#fff",
-      padding: "12px 16px",
-      borderRadius: 14,
+      padding: "12px 22px",
+      borderRadius: 18,
       fontWeight: 800,
-      fontSize: 14,
+      fontSize: 13,
       cursor: "pointer",
-      boxShadow: "0 14px 26px rgba(22,48,30,0.12)",
+      boxShadow: "0 10px 20px rgba(22,48,30,0.1)",
+      alignSelf: "flex-start",
+      marginTop: 12,
     },
 
     secondaryButton: {
@@ -2485,25 +2439,26 @@ function getStyles({ isMobile, isTablet, sidebarOpen }) {
     },
 
     panel: {
-      borderRadius: 22,
-      background: "rgba(255,255,255,0.88)",
-      border: "1px solid rgba(23,51,31,0.08)",
-      boxShadow: "0 16px 40px rgba(22,48,30,0.05)",
-      padding: 18,
+      borderRadius: 24,
+      background: "rgba(255,255,255,0.9)",
+      border: "1px solid rgba(23,51,31,0.06)",
+      boxShadow: "0 10px 30px rgba(22,48,30,0.04)",
+      padding: isMobile ? 16 : 22,
     },
 
     textarea: {
       width: "100%",
-      minHeight: 96,
-      borderRadius: 16,
-      border: "1px solid rgba(23,51,31,0.12)",
-      background: "rgba(255,255,255,0.95)",
-      padding: 14,
+      minHeight: 120,
+      borderRadius: 20,
+      border: "1px solid rgba(23,51,31,0.1)",
+      background: "#fcfcfc",
+      padding: "18px 18px",
       resize: "vertical",
-      fontSize: 14,
+      fontSize: 15,
       color: "#17331f",
       boxSizing: "border-box",
       outline: "none",
+      boxShadow: "inset 0 1px 2px rgba(0,0,0,0.02)",
     },
 
     listCard: {
