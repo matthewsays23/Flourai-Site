@@ -217,6 +217,18 @@ export default function Home() {
             </article>
           </div>
         </section>
+
+        <footer style={styles.footer}>
+          <span style={styles.footerBrand}>Flourai</span>
+          <div style={styles.footerLinks}>
+            <a href="/terms" style={styles.footerLink}>
+              Terms of Service
+            </a>
+            <a href="/privacy" style={styles.footerLink}>
+              Privacy Policy
+            </a>
+          </div>
+        </footer>
       </main>
     </div>
   );
@@ -652,6 +664,38 @@ function createStyles({ isMobile, isTablet }) {
       color: "#607268",
       fontSize: 15,
       lineHeight: 1.72,
+    },
+
+    footer: {
+      maxWidth: 1500,
+      margin: isMobile ? "56px auto 0" : "72px auto 0",
+      padding: isMobile ? "22px 0 0" : "24px 0 0",
+      borderTop: "1px solid rgba(28,47,37,0.12)",
+      display: "flex",
+      flexDirection: isMobile ? "column" : "row",
+      alignItems: isMobile ? "flex-start" : "center",
+      justifyContent: "space-between",
+      gap: 14,
+      color: "#607268",
+      fontSize: 14,
+      fontWeight: 700,
+    },
+
+    footerBrand: {
+      color: "#294d38",
+      fontWeight: 900,
+    },
+
+    footerLinks: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: isMobile ? 14 : 22,
+    },
+
+    footerLink: {
+      color: "#607268",
+      textDecoration: "none",
+      fontWeight: 800,
     },
   };
 }
