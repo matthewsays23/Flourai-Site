@@ -1664,12 +1664,19 @@ function getStyles({ isMobile, isTablet, sidebarOpen }) {
     },
 
     logoWrap: {
-      padding: "6px 4px 10px",
+      height: 76,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "4px 8px 12px",
+      boxSizing: "border-box",
+      overflow: "hidden",
     },
 
     logo: {
-      width: "100%",
-      maxWidth: 155,
+      width: 172,
+      maxWidth: "100%",
+      height: "auto",
       objectFit: "contain",
       display: "block",
     },
