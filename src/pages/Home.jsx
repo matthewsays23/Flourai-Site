@@ -69,6 +69,9 @@ export default function Home() {
             <a href="#activity" style={styles.navLink}>
               Activity
             </a>
+            <a href="/verify" style={styles.navLink}>
+              Verify
+            </a>
           </nav>
         )}
 
@@ -98,6 +101,9 @@ export default function Home() {
           <a href="#activity" style={styles.mobileLink}>
             Activity
           </a>
+          <a href="/verify" style={styles.mobileLink}>
+            Verify
+          </a>
           <button style={styles.mobileButton} onClick={handleWorkspace}>
             Enter Flourai
           </button>
@@ -121,6 +127,14 @@ export default function Home() {
               </button>
               <button style={styles.secondaryButton} onClick={handleWorkspace}>
                 View Workspace
+              </button>
+              <button
+                style={styles.secondaryButton}
+                onClick={() => {
+                  window.location.href = "/verify";
+                }}
+              >
+                Verify Discord
               </button>
             </div>
 
