@@ -83,6 +83,15 @@ export default function Dashboard() {
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState("");
 
+  const [workspaceSettings, setWorkspaceSettings] = useState(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsError, setSettingsError] = useState("");
+
+  const [selectedDepartmentKey, setSelectedDepartmentKey] = useState("staffing");
+  const [selectedDepartmentMemberId, setSelectedDepartmentMemberId] = useState("");
+  const [assigningDepartment, setAssigningDepartment] = useState(false);
+  const [removingDepartmentUserId, setRemovingDepartmentUserId] = useState("");
+
   const [selectedMemberId, setSelectedMemberId] = useState(null);
   const [selectedMemberProfile, setSelectedMemberProfile] = useState(null);
   const [selectedMemberLoading, setSelectedMemberLoading] = useState(false);
@@ -91,11 +100,10 @@ export default function Dashboard() {
   const [warningInput, setWarningInput] = useState("");
   const [suspensionInput, setSuspensionInput] = useState("");
   const [noteInput, setNoteInput] = useState("");
- const [deletingItemId, setDeletingItemId] = useState("");
+  const [deletingItemId, setDeletingItemId] = useState("");
   const [savingWarning, setSavingWarning] = useState(false);
   const [savingSuspension, setSavingSuspension] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
-
 
   useEffect(() => {
     document.body.style.margin = "0";
@@ -234,6 +242,29 @@ export default function Dashboard() {
     }
   };
 
+  const loadWorkspaceSettings = async () => {
+    try {
+      setSettingsLoading(true);
+      setSettingsError("");
+
+      const res = await fetch(`${API_BASE}/api/workspace/settings`, {
+        credentials: "include",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load workspace settings");
+      }
+
+      setWorkspaceSettings(data.settings);
+    } catch (err) {
+      setSettingsError(err.message || "Failed to load workspace settings");
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
     loadWorkspaceAccess();
@@ -248,6 +279,11 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user) return;
     loadActivityOverview();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    loadWorkspaceSettings();
   }, [user]);
 
   const refreshMembers = async () => {
@@ -275,6 +311,7 @@ export default function Dashboard() {
         loadMembers(),
         loadWorkspaceAccess(),
         loadActivityOverview(),
+        loadWorkspaceSettings(),
       ]);
 
       if (selectedMemberId) {
@@ -287,45 +324,121 @@ export default function Dashboard() {
     }
   };
 
-  const loadMemberProfile = async (userId) => {
-  try {
-    setSelectedMemberLoading(true);
-    setSelectedMemberError("");
+  const assignDepartmentMember = async () => {
+    if (!selectedDepartmentKey || !selectedDepartmentMemberId) return;
 
-    const res = await fetch(
-      `${API_BASE}/api/workspace/members/${userId}/profile`,
-      {
-        credentials: "include",
+    try {
+      setAssigningDepartment(true);
+      setSettingsError("");
+
+      const res = await fetch(
+        `${API_BASE}/api/workspace/settings/departments/${selectedDepartmentKey}/members`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId: selectedDepartmentMemberId,
+          }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to assign member");
       }
-    );
 
-    const data = await res.json();
+      setWorkspaceSettings((prev) => ({
+        ...(prev || {}),
+        departments: data.departments,
+      }));
 
-    if (!res.ok) {
-      throw new Error(data.error || "Failed to load member profile");
+      setSelectedDepartmentMemberId("");
+
+      await Promise.all([loadWorkspaceAccess(), loadMembers(), loadWorkspaceSettings()]);
+    } catch (err) {
+      setSettingsError(err.message || "Failed to assign member");
+    } finally {
+      setAssigningDepartment(false);
     }
+  };
 
-    setSelectedMemberId(userId);
-    setSelectedMemberProfile(data.member);
+  const removeDepartmentMember = async (departmentKey, userId) => {
+    if (!departmentKey || !userId) return;
+
+    try {
+      setRemovingDepartmentUserId(userId);
+      setSettingsError("");
+
+      const res = await fetch(
+        `${API_BASE}/api/workspace/settings/departments/${departmentKey}/members/${userId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to remove member");
+      }
+
+      setWorkspaceSettings((prev) => ({
+        ...(prev || {}),
+        departments: data.departments,
+      }));
+
+      await Promise.all([loadWorkspaceAccess(), loadMembers(), loadWorkspaceSettings()]);
+    } catch (err) {
+      setSettingsError(err.message || "Failed to remove member");
+    } finally {
+      setRemovingDepartmentUserId("");
+    }
+  };
+
+  const loadMemberProfile = async (userId) => {
+    try {
+      setSelectedMemberLoading(true);
+      setSelectedMemberError("");
+
+      const res = await fetch(
+        `${API_BASE}/api/workspace/members/${userId}/profile`,
+        {
+          credentials: "include",
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load member profile");
+      }
+
+      setSelectedMemberId(userId);
+      setSelectedMemberProfile(data.member);
+      setWarningInput("");
+      setSuspensionInput("");
+      setNoteInput("");
+    } catch (err) {
+      setSelectedMemberError(err.message || "Failed to load member profile");
+    } finally {
+      setSelectedMemberLoading(false);
+    }
+  };
+
+  const closeMemberDrawer = () => {
+    setSelectedMemberId(null);
+    setSelectedMemberProfile(null);
+    setSelectedMemberError("");
     setWarningInput("");
     setSuspensionInput("");
     setNoteInput("");
-  } catch (err) {
-    setSelectedMemberError(err.message || "Failed to load member profile");
-  } finally {
-    setSelectedMemberLoading(false);
-  }
-};
-
- const closeMemberDrawer = () => {
-  setSelectedMemberId(null);
-  setSelectedMemberProfile(null);
-  setSelectedMemberError("");
-  setWarningInput("");
-  setSuspensionInput("");
-  setNoteInput("");
-  setDeletingItemId("");
-};
+    setDeletingItemId("");
+  };
 
   const createMemberItem = async (type) => {
     if (!selectedMemberId) return;
@@ -391,53 +504,53 @@ export default function Dashboard() {
   };
 
   const deleteMemberItem = async (type, itemId) => {
-  if (!selectedMemberId || !itemId) return;
+    if (!selectedMemberId || !itemId) return;
 
-  const configMap = {
-    warning: {
-      endpoint: `warnings/${itemId}`,
-      errorText: "Failed to delete warning",
-    },
-    suspension: {
-      endpoint: `suspensions/${itemId}`,
-      errorText: "Failed to delete suspension",
-    },
-    note: {
-      endpoint: `notes/${itemId}`,
-      errorText: "Failed to delete note",
-    },
-  };
+    const configMap = {
+      warning: {
+        endpoint: `warnings/${itemId}`,
+        errorText: "Failed to delete warning",
+      },
+      suspension: {
+        endpoint: `suspensions/${itemId}`,
+        errorText: "Failed to delete suspension",
+      },
+      note: {
+        endpoint: `notes/${itemId}`,
+        errorText: "Failed to delete note",
+      },
+    };
 
-  const config = configMap[type];
-  if (!config) return;
+    const config = configMap[type];
+    if (!config) return;
 
-  try {
-    setDeletingItemId(itemId);
-    setSelectedMemberError("");
+    try {
+      setDeletingItemId(itemId);
+      setSelectedMemberError("");
 
-    const res = await fetch(
-      `${API_BASE}/api/workspace/members/${selectedMemberId}/${config.endpoint}`,
-      {
-        method: "DELETE",
-        credentials: "include",
+      const res = await fetch(
+        `${API_BASE}/api/workspace/members/${selectedMemberId}/${config.endpoint}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || config.errorText);
       }
-    );
 
-    const data = await res.json();
+      setSelectedMemberProfile(data.member);
 
-    if (!res.ok) {
-      throw new Error(data.error || config.errorText);
+      await Promise.all([loadMembers(), loadActivityOverview()]);
+    } catch (err) {
+      setSelectedMemberError(err.message || config.errorText);
+    } finally {
+      setDeletingItemId("");
     }
-
-    setSelectedMemberProfile(data.member);
-
-    await Promise.all([loadMembers(), loadActivityOverview()]);
-  } catch (err) {
-    setSelectedMemberError(err.message || config.errorText);
-  } finally {
-    setDeletingItemId("");
-  }
-};
+  };
 
   const filteredMembers = useMemo(() => {
     const query = memberSearch.trim().toLowerCase();
@@ -449,14 +562,20 @@ export default function Dashboard() {
         member.displayName?.toLowerCase().includes(query) ||
         member.username?.toLowerCase().includes(query) ||
         member.roleLabel?.toLowerCase().includes(query) ||
-        member.roleName?.toLowerCase().includes(query)
+        member.roleName?.toLowerCase().includes(query) ||
+        member.departmentLabel?.toLowerCase().includes(query)
       );
     });
   }, [members, memberSearch]);
 
   const permissions = workspaceAccess?.permissions || {};
   const canRefreshMembers = !!permissions.canRefreshMembers;
-  const canManageMembers = !!permissions.canManageMembers;
+  const canWarn = !!permissions.canWarn;
+  const canSuspend = !!permissions.canSuspend;
+  const canAddNotes = !!permissions.canAddNotes;
+  const canViewActivity = !!permissions.canViewActivity;
+  const canManageWebsite = !!permissions.canManageWebsite;
+  const canManageSettings = !!permissions.canManageSettings;
 
   const availableTabs = DEFAULT_TABS;
   const workspaceName = workspaceAccess?.workspace?.name || "Flourai Panel";
@@ -472,6 +591,14 @@ export default function Dashboard() {
     quotaRate: 0,
     targetMinutes: 30,
   };
+
+  const departmentCollection =
+    workspaceSettings?.departments ||
+    workspaceAccess?.workspace?.departments ||
+    {};
+
+  const selectedDepartment =
+    departmentCollection?.[selectedDepartmentKey] || null;
 
   const activityWeekly = Array.isArray(activityOverview?.weekly)
     ? activityOverview.weekly
@@ -494,290 +621,298 @@ export default function Dashboard() {
       )}
 
       {selectedMemberId && (
-  <>
-    <div style={styles.memberDrawerOverlay} onClick={closeMemberDrawer} />
-    <div style={styles.memberDrawer}>
-      <div style={styles.memberDrawerHeader}>
-        <div style={styles.memberDrawerHeaderLeft}>
-          <div style={styles.memberDrawerAvatar}>
-            {selectedMemberProfile?.avatar ? (
-              <img
-                src={selectedMemberProfile.avatar}
-                alt={`${selectedMemberProfile.displayName} avatar`}
-                style={styles.memberDrawerAvatarImg}
-              />
+        <>
+          <div style={styles.memberDrawerOverlay} onClick={closeMemberDrawer} />
+          <div style={styles.memberDrawer}>
+            <div style={styles.memberDrawerHeader}>
+              <div style={styles.memberDrawerHeaderLeft}>
+                <div style={styles.memberDrawerAvatar}>
+                  {selectedMemberProfile?.avatar ? (
+                    <img
+                      src={selectedMemberProfile.avatar}
+                      alt={`${selectedMemberProfile.displayName} avatar`}
+                      style={styles.memberDrawerAvatarImg}
+                    />
+                  ) : (
+                    getInitials(selectedMemberProfile?.displayName || "Member")
+                  )}
+                </div>
+
+                <div style={{ minWidth: 0 }}>
+                  <h2 style={styles.memberDrawerName}>
+                    {selectedMemberProfile?.displayName || "Loading member..."}
+                  </h2>
+                  <p style={styles.memberDrawerUsername}>
+                    {selectedMemberProfile?.username
+                      ? `@${selectedMemberProfile.username}`
+                      : ""}
+                  </p>
+
+                  <div style={styles.memberDrawerBadgeRow}>
+                    {selectedMemberProfile?.roleLabel && (
+                      <span style={styles.memberBadge}>
+                        {selectedMemberProfile.roleLabel}
+                      </span>
+                    )}
+
+                    {selectedMemberProfile?.departmentLabel && (
+                      <span style={styles.memberBadgeSoft}>
+                        {selectedMemberProfile.departmentLabel}
+                      </span>
+                    )}
+
+                    <span style={styles.memberBadgeSoft}>
+                      Weekly: {" "}
+                      {formatMinutes(selectedMemberProfile?.weeklyTotalMinutes || 0)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <button style={styles.closeDrawerButton} onClick={closeMemberDrawer}>
+                ✕
+              </button>
+            </div>
+
+            {selectedMemberError && (
+              <div style={{ ...styles.error, marginBottom: 16 }}>
+                {selectedMemberError}
+              </div>
+            )}
+
+            {selectedMemberLoading && !selectedMemberProfile ? (
+              <div style={styles.loading}>Loading member profile...</div>
+            ) : selectedMemberProfile ? (
+              <div style={styles.memberDrawerGrid}>
+                <div style={styles.drawerSection}>
+                  <p style={styles.label}>Profile</p>
+
+                  <div style={styles.drawerStatGrid}>
+                    <div style={styles.drawerStatCard}>
+                      <span style={styles.drawerStatLabel}>Warnings</span>
+                      <strong style={styles.drawerStatValue}>
+                        {selectedMemberProfile.warnings?.length || 0}
+                      </strong>
+                    </div>
+
+                    <div style={styles.drawerStatCard}>
+                      <span style={styles.drawerStatLabel}>Suspensions</span>
+                      <strong style={styles.drawerStatValue}>
+                        {selectedMemberProfile.suspensions?.length || 0}
+                      </strong>
+                    </div>
+
+                    <div style={styles.drawerStatCard}>
+                      <span style={styles.drawerStatLabel}>Notes</span>
+                      <strong style={styles.drawerStatValue}>
+                        {selectedMemberProfile.notes?.length || 0}
+                      </strong>
+                    </div>
+
+                    <div style={styles.drawerStatCard}>
+                      <span style={styles.drawerStatLabel}>Weekly Total</span>
+                      <strong style={styles.drawerStatValue}>
+                        {formatMinutes(selectedMemberProfile.weeklyTotalMinutes || 0)}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {canViewActivity && (
+                  <div style={styles.drawerSection}>
+                    <p style={styles.label}>Weekly Activity</p>
+
+                    <div style={styles.weeklyBars}>
+                      {(selectedMemberProfile.weeklyActivity || DEFAULT_WEEKLY_ACTIVITY).map(
+                        (day) => {
+                          const barHeight = clamp(
+                            Number(day.minutes || 0) * 1.8,
+                            10,
+                            110
+                          );
+
+                          return (
+                            <div key={day.label} style={styles.weeklyBarWrap}>
+                              <div style={styles.weeklyBarTrack}>
+                                <div
+                                  style={{
+                                    ...styles.weeklyBarFill,
+                                    height: `${barHeight}px`,
+                                  }}
+                                />
+                              </div>
+
+                              <span style={styles.weeklyBarLabel}>{day.label}</span>
+                              <span style={styles.dayValue}>{day.minutes}m</span>
+                            </div>
+                          );
+                        }
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div style={styles.drawerSection}>
+                  <p style={styles.label}>Add Warning</p>
+
+                  <textarea
+                    value={warningInput}
+                    onChange={(e) => setWarningInput(e.target.value)}
+                    placeholder="Enter a warning reason..."
+                    style={styles.drawerTextarea}
+                    disabled={!canWarn || savingWarning}
+                  />
+
+                  {canWarn && (
+                    <button
+                      style={styles.primaryButton}
+                      onClick={() => createMemberItem("warning")}
+                      disabled={savingWarning}
+                    >
+                      {savingWarning ? "Adding..." : "Add Warning"}
+                    </button>
+                  )}
+
+                  <div style={styles.drawerList}>
+                    {selectedMemberProfile.warnings?.length > 0 ? (
+                      selectedMemberProfile.warnings.map((item) => (
+                        <div key={item.id} style={styles.drawerListItem}>
+                          <div style={styles.drawerListItemTop}>
+                            <strong style={styles.drawerListTitle}>Warning</strong>
+
+                            {canWarn && (
+                              <button
+                                style={styles.deleteItemButton}
+                                onClick={() => deleteMemberItem("warning", item.id)}
+                                disabled={deletingItemId === item.id}
+                              >
+                                {deletingItemId === item.id ? "Deleting..." : "Delete"}
+                              </button>
+                            )}
+                          </div>
+
+                          <p style={styles.drawerListText}>{item.reason}</p>
+                          <span style={styles.drawerListDate}>
+                            {new Date(item.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={styles.drawerEmpty}>No warnings yet.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={styles.drawerSection}>
+                  <p style={styles.label}>Add Suspension</p>
+
+                  <textarea
+                    value={suspensionInput}
+                    onChange={(e) => setSuspensionInput(e.target.value)}
+                    placeholder="Enter suspension details..."
+                    style={styles.drawerTextarea}
+                    disabled={!canSuspend || savingSuspension}
+                  />
+
+                  {canSuspend && (
+                    <button
+                      style={styles.primaryButton}
+                      onClick={() => createMemberItem("suspension")}
+                      disabled={savingSuspension}
+                    >
+                      {savingSuspension ? "Adding..." : "Add Suspension"}
+                    </button>
+                  )}
+
+                  <div style={styles.drawerList}>
+                    {selectedMemberProfile.suspensions?.length > 0 ? (
+                      selectedMemberProfile.suspensions.map((item) => (
+                        <div key={item.id} style={styles.drawerListItem}>
+                          <div style={styles.drawerListItemTop}>
+                            <strong style={styles.drawerListTitle}>Suspension</strong>
+
+                            {canSuspend && (
+                              <button
+                                style={styles.deleteItemButton}
+                                onClick={() =>
+                                  deleteMemberItem("suspension", item.id)
+                                }
+                                disabled={deletingItemId === item.id}
+                              >
+                                {deletingItemId === item.id ? "Deleting..." : "Delete"}
+                              </button>
+                            )}
+                          </div>
+
+                          <p style={styles.drawerListText}>{item.details}</p>
+                          <span style={styles.drawerListDate}>
+                            {new Date(item.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={styles.drawerEmpty}>No suspensions yet.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={styles.drawerSectionFull}>
+                  <p style={styles.label}>Staff Notes</p>
+
+                  <textarea
+                    value={noteInput}
+                    onChange={(e) => setNoteInput(e.target.value)}
+                    placeholder="Add a private staff note..."
+                    style={styles.drawerTextareaLarge}
+                    disabled={!canAddNotes || savingNote}
+                  />
+
+                  {canAddNotes && (
+                    <button
+                      style={styles.primaryButton}
+                      onClick={() => createMemberItem("note")}
+                      disabled={savingNote}
+                    >
+                      {savingNote ? "Saving..." : "Save Note"}
+                    </button>
+                  )}
+
+                  <div style={styles.drawerList}>
+                    {selectedMemberProfile.notes?.length > 0 ? (
+                      selectedMemberProfile.notes.map((item) => (
+                        <div key={item.id} style={styles.drawerListItem}>
+                          <div style={styles.drawerListItemTop}>
+                            <strong style={styles.drawerListTitle}>Note</strong>
+
+                            {canAddNotes && (
+                              <button
+                                style={styles.deleteItemButton}
+                                onClick={() => deleteMemberItem("note", item.id)}
+                                disabled={deletingItemId === item.id}
+                              >
+                                {deletingItemId === item.id ? "Deleting..." : "Delete"}
+                              </button>
+                            )}
+                          </div>
+
+                          <p style={styles.drawerListText}>{item.body}</p>
+                          <span style={styles.drawerListDate}>
+                            {new Date(item.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={styles.drawerEmpty}>No notes yet.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
             ) : (
-              getInitials(selectedMemberProfile?.displayName || "Member")
+              <div style={styles.emptyState}>Unable to load this member.</div>
             )}
           </div>
-
-          <div style={{ minWidth: 0 }}>
-            <h2 style={styles.memberDrawerName}>
-              {selectedMemberProfile?.displayName || "Loading member..."}
-            </h2>
-            <p style={styles.memberDrawerUsername}>
-              {selectedMemberProfile?.username
-                ? `@${selectedMemberProfile.username}`
-                : ""}
-            </p>
-
-            <div style={styles.memberDrawerBadgeRow}>
-              {selectedMemberProfile?.roleLabel && (
-                <span style={styles.memberBadge}>
-                  {selectedMemberProfile.roleLabel}
-                </span>
-              )}
-
-              <span style={styles.memberBadgeSoft}>
-                Weekly:{" "}
-                {formatMinutes(selectedMemberProfile?.weeklyTotalMinutes || 0)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <button style={styles.closeDrawerButton} onClick={closeMemberDrawer}>
-          ✕
-        </button>
-      </div>
-
-      {selectedMemberError && (
-        <div style={{ ...styles.error, marginBottom: 16 }}>
-          {selectedMemberError}
-        </div>
+        </>
       )}
-
-      {selectedMemberLoading && !selectedMemberProfile ? (
-        <div style={styles.loading}>Loading member profile...</div>
-      ) : selectedMemberProfile ? (
-        <div style={styles.memberDrawerGrid}>
-          <div style={styles.drawerSection}>
-            <p style={styles.label}>Profile</p>
-
-            <div style={styles.drawerStatGrid}>
-              <div style={styles.drawerStatCard}>
-                <span style={styles.drawerStatLabel}>Warnings</span>
-                <strong style={styles.drawerStatValue}>
-                  {selectedMemberProfile.warnings?.length || 0}
-                </strong>
-              </div>
-
-              <div style={styles.drawerStatCard}>
-                <span style={styles.drawerStatLabel}>Suspensions</span>
-                <strong style={styles.drawerStatValue}>
-                  {selectedMemberProfile.suspensions?.length || 0}
-                </strong>
-              </div>
-
-              <div style={styles.drawerStatCard}>
-                <span style={styles.drawerStatLabel}>Notes</span>
-                <strong style={styles.drawerStatValue}>
-                  {selectedMemberProfile.notes?.length || 0}
-                </strong>
-              </div>
-
-              <div style={styles.drawerStatCard}>
-                <span style={styles.drawerStatLabel}>Weekly Total</span>
-                <strong style={styles.drawerStatValue}>
-                  {formatMinutes(selectedMemberProfile.weeklyTotalMinutes || 0)}
-                </strong>
-              </div>
-            </div>
-          </div>
-
-          <div style={styles.drawerSection}>
-            <p style={styles.label}>Weekly Activity</p>
-
-            <div style={styles.weeklyBars}>
-              {(selectedMemberProfile.weeklyActivity || DEFAULT_WEEKLY_ACTIVITY).map(
-                (day) => {
-                  const barHeight = clamp(
-                    Number(day.minutes || 0) * 1.8,
-                    10,
-                    110
-                  );
-
-                  return (
-                    <div key={day.label} style={styles.weeklyBarWrap}>
-                      <div style={styles.weeklyBarTrack}>
-                        <div
-                          style={{
-                            ...styles.weeklyBarFill,
-                            height: `${barHeight}px`,
-                          }}
-                        />
-                      </div>
-
-                      <span style={styles.weeklyBarLabel}>{day.label}</span>
-                      <span style={styles.dayValue}>{day.minutes}m</span>
-                    </div>
-                  );
-                }
-              )}
-            </div>
-          </div>
-
-          <div style={styles.drawerSection}>
-            <p style={styles.label}>Add Warning</p>
-
-            <textarea
-              value={warningInput}
-              onChange={(e) => setWarningInput(e.target.value)}
-              placeholder="Enter a warning reason..."
-              style={styles.drawerTextarea}
-              disabled={!canManageMembers || savingWarning}
-            />
-
-            {canManageMembers && (
-              <button
-                style={styles.primaryButton}
-                onClick={() => createMemberItem("warning")}
-                disabled={savingWarning}
-              >
-                {savingWarning ? "Adding..." : "Add Warning"}
-              </button>
-            )}
-
-            <div style={styles.drawerList}>
-              {selectedMemberProfile.warnings?.length > 0 ? (
-                selectedMemberProfile.warnings.map((item) => (
-                  <div key={item.id} style={styles.drawerListItem}>
-                    <div style={styles.drawerListItemTop}>
-                      <strong style={styles.drawerListTitle}>Warning</strong>
-
-                      {canManageMembers && (
-                        <button
-                          style={styles.deleteItemButton}
-                          onClick={() => deleteMemberItem("warning", item.id)}
-                          disabled={deletingItemId === item.id}
-                        >
-                          {deletingItemId === item.id ? "Deleting..." : "Delete"}
-                        </button>
-                      )}
-                    </div>
-
-                    <p style={styles.drawerListText}>{item.reason}</p>
-                    <span style={styles.drawerListDate}>
-                      {new Date(item.createdAt).toLocaleString()}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <div style={styles.drawerEmpty}>No warnings yet.</div>
-              )}
-            </div>
-          </div>
-
-          <div style={styles.drawerSection}>
-            <p style={styles.label}>Add Suspension</p>
-
-            <textarea
-              value={suspensionInput}
-              onChange={(e) => setSuspensionInput(e.target.value)}
-              placeholder="Enter suspension details..."
-              style={styles.drawerTextarea}
-              disabled={!canManageMembers || savingSuspension}
-            />
-
-            {canManageMembers && (
-              <button
-                style={styles.primaryButton}
-                onClick={() => createMemberItem("suspension")}
-                disabled={savingSuspension}
-              >
-                {savingSuspension ? "Adding..." : "Add Suspension"}
-              </button>
-            )}
-
-            <div style={styles.drawerList}>
-              {selectedMemberProfile.suspensions?.length > 0 ? (
-                selectedMemberProfile.suspensions.map((item) => (
-                  <div key={item.id} style={styles.drawerListItem}>
-                    <div style={styles.drawerListItemTop}>
-                      <strong style={styles.drawerListTitle}>Suspension</strong>
-
-                      {canManageMembers && (
-                        <button
-                          style={styles.deleteItemButton}
-                          onClick={() =>
-                            deleteMemberItem("suspension", item.id)
-                          }
-                          disabled={deletingItemId === item.id}
-                        >
-                          {deletingItemId === item.id ? "Deleting..." : "Delete"}
-                        </button>
-                      )}
-                    </div>
-
-                    <p style={styles.drawerListText}>{item.details}</p>
-                    <span style={styles.drawerListDate}>
-                      {new Date(item.createdAt).toLocaleString()}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <div style={styles.drawerEmpty}>No suspensions yet.</div>
-              )}
-            </div>
-          </div>
-
-          <div style={styles.drawerSectionFull}>
-            <p style={styles.label}>Staff Notes</p>
-
-            <textarea
-              value={noteInput}
-              onChange={(e) => setNoteInput(e.target.value)}
-              placeholder="Add a private staff note..."
-              style={styles.drawerTextareaLarge}
-              disabled={!canManageMembers || savingNote}
-            />
-
-            {canManageMembers && (
-              <button
-                style={styles.primaryButton}
-                onClick={() => createMemberItem("note")}
-                disabled={savingNote}
-              >
-                {savingNote ? "Saving..." : "Save Note"}
-              </button>
-            )}
-
-            <div style={styles.drawerList}>
-              {selectedMemberProfile.notes?.length > 0 ? (
-                selectedMemberProfile.notes.map((item) => (
-                  <div key={item.id} style={styles.drawerListItem}>
-                    <div style={styles.drawerListItemTop}>
-                      <strong style={styles.drawerListTitle}>Note</strong>
-
-                      {canManageMembers && (
-                        <button
-                          style={styles.deleteItemButton}
-                          onClick={() => deleteMemberItem("note", item.id)}
-                          disabled={deletingItemId === item.id}
-                        >
-                          {deletingItemId === item.id ? "Deleting..." : "Delete"}
-                        </button>
-                      )}
-                    </div>
-
-                    <p style={styles.drawerListText}>{item.body}</p>
-                    <span style={styles.drawerListDate}>
-                      {new Date(item.createdAt).toLocaleString()}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <div style={styles.drawerEmpty}>No notes yet.</div>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div style={styles.emptyState}>Unable to load this member.</div>
-      )}
-    </div>
-  </>
-)}
 
       <aside style={styles.sidebar}>
         <div style={styles.sidebarGlow} />
@@ -891,6 +1026,9 @@ export default function Dashboard() {
                     <p style={styles.accountRole}>
                       Workspace Role: {workspaceRoleLabel}
                     </p>
+                    <p style={styles.accountRole}>
+                      Department: {workspaceAccess?.viewer?.departmentLabel || "No Department"}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -919,8 +1057,8 @@ export default function Dashboard() {
                 <p style={styles.label}>System Status</p>
                 <h3 style={styles.bottomTitle}>Workspace is connected 🌿</h3>
                 <p style={styles.sub}>
-                  This panel now supports member profile records, activity
-                  totals, warnings, suspensions, and notes.
+                  This panel now supports member profile records, activity totals,
+                  warnings, suspensions, notes, and department-based permissions.
                 </p>
               </div>
 
@@ -953,8 +1091,7 @@ export default function Dashboard() {
               <p style={styles.label}>Activity</p>
               <h3 style={styles.bottomTitle}>Workspace activity overview</h3>
               <p style={styles.sub}>
-                View tracked totals, weekly trends, top performers, and quota
-                progress.
+                View tracked totals, weekly trends, top performers, and quota progress.
               </p>
             </div>
 
@@ -1171,6 +1308,12 @@ export default function Dashboard() {
                           {member.roleLabel || member.roleName || "Member"}
                         </span>
 
+                        {member.departmentLabel && (
+                          <span style={styles.memberBadgeSoft}>
+                            {member.departmentLabel}
+                          </span>
+                        )}
+
                         {member.isConnectedUser && (
                           <span style={styles.memberBadgeSoft}>
                             Connected Account
@@ -1273,39 +1416,41 @@ export default function Dashboard() {
               <p style={styles.label}>Settings</p>
               <h3 style={styles.bottomTitle}>Workspace configuration</h3>
               <p style={styles.sub}>
-                Manage directory behavior, moderation tools, sessions, and
-                activity visibility from one place.
+                Manage department access, moderation tools, sessions, and future website permissions.
               </p>
             </div>
 
+            {settingsError && <div style={styles.error}>{settingsError}</div>}
+            {settingsLoading && (
+              <div style={styles.loading}>Loading workspace settings...</div>
+            )}
+
             <div style={styles.settingsGrid}>
               <div style={styles.settingsCard}>
-                <p style={styles.label}>Moderation</p>
+                <p style={styles.label}>Department Permissions</p>
 
                 <div style={styles.settingsList}>
                   <div style={styles.settingRow}>
                     <div>
                       <strong style={styles.settingTitle}>Warnings system</strong>
                       <p style={styles.settingSub}>
-                        Warning records inside member profiles.
+                        Current access for your assigned department.
                       </p>
                     </div>
-                    <div style={styles.toggleOn}>
-                      {canManageMembers ? "Enabled" : "View Only"}
+                    <div style={canWarn ? styles.toggleOn : styles.toggleOff}>
+                      {canWarn ? "Allowed" : "No Access"}
                     </div>
                   </div>
 
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>
-                        Suspension records
-                      </strong>
+                      <strong style={styles.settingTitle}>Suspension records</strong>
                       <p style={styles.settingSub}>
-                        Save suspension history on each user.
+                        Current access for your assigned department.
                       </p>
                     </div>
-                    <div style={styles.toggleOn}>
-                      {canManageMembers ? "Enabled" : "View Only"}
+                    <div style={canSuspend ? styles.toggleOn : styles.toggleOff}>
+                      {canSuspend ? "Allowed" : "No Access"}
                     </div>
                   </div>
 
@@ -1313,13 +1458,198 @@ export default function Dashboard() {
                     <div>
                       <strong style={styles.settingTitle}>Private staff notes</strong>
                       <p style={styles.settingSub}>
-                        Keep internal notes on members.
+                        Current access for your assigned department.
                       </p>
                     </div>
-                    <div style={styles.toggleOn}>
-                      {canManageMembers ? "Enabled" : "View Only"}
+                    <div style={canAddNotes ? styles.toggleOn : styles.toggleOff}>
+                      {canAddNotes ? "Allowed" : "No Access"}
                     </div>
                   </div>
+
+                  <div style={styles.settingRow}>
+                    <div>
+                      <strong style={styles.settingTitle}>Activity visibility</strong>
+                      <p style={styles.settingSub}>
+                        View weekly activity and summaries.
+                      </p>
+                    </div>
+                    <div style={canViewActivity ? styles.toggleOn : styles.toggleOff}>
+                      {canViewActivity ? "Allowed" : "No Access"}
+                    </div>
+                  </div>
+
+                  <div style={styles.settingRow}>
+                    <div>
+                      <strong style={styles.settingTitle}>Website controls</strong>
+                      <p style={styles.settingSub}>
+                        Reserved for future communications tools.
+                      </p>
+                    </div>
+                    <div style={canManageWebsite ? styles.toggleOn : styles.toggleOff}>
+                      {canManageWebsite ? "Allowed" : "Soon"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={styles.settingsCard}>
+                <p style={styles.label}>Department Manager</p>
+
+                <div style={styles.settingsList}>
+                  <div style={styles.settingRowColumn}>
+                    <strong style={styles.settingTitle}>Department</strong>
+                    <select
+                      value={selectedDepartmentKey}
+                      onChange={(e) => setSelectedDepartmentKey(e.target.value)}
+                      style={styles.departmentSelect}
+                      disabled={!canManageSettings}
+                    >
+                      {Object.values(departmentCollection || {}).map((department) => (
+                        <option key={department.key} value={department.key}>
+                          {department.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={styles.settingRowColumn}>
+                    <strong style={styles.settingTitle}>Add member</strong>
+                    <select
+                      value={selectedDepartmentMemberId}
+                      onChange={(e) => setSelectedDepartmentMemberId(e.target.value)}
+                      style={styles.departmentSelect}
+                      disabled={!canManageSettings}
+                    >
+                      <option value="">Select a member...</option>
+                      {members.map((member) => (
+                        <option key={member.userId} value={member.userId}>
+                          {member.displayName} (@{member.username})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {canManageSettings && (
+                    <button
+                      style={styles.primaryButton}
+                      onClick={assignDepartmentMember}
+                      disabled={!selectedDepartmentMemberId || assigningDepartment}
+                    >
+                      {assigningDepartment ? "Saving..." : "Assign to Department"}
+                    </button>
+                  )}
+
+                  {selectedDepartment && (
+                    <>
+                      <div style={styles.departmentPermissionsCard}>
+                        <strong style={styles.sectionTitle}>
+                          {selectedDepartment.label}
+                        </strong>
+
+                        <div style={styles.permissionBadgeRow}>
+                          <span
+                            style={
+                              selectedDepartment.permissions?.canWarn
+                                ? styles.permissionBadgeOn
+                                : styles.permissionBadgeOff
+                            }
+                          >
+                            Warn
+                          </span>
+                          <span
+                            style={
+                              selectedDepartment.permissions?.canSuspend
+                                ? styles.permissionBadgeOn
+                                : styles.permissionBadgeOff
+                            }
+                          >
+                            Suspend
+                          </span>
+                          <span
+                            style={
+                              selectedDepartment.permissions?.canAddNotes
+                                ? styles.permissionBadgeOn
+                                : styles.permissionBadgeOff
+                            }
+                          >
+                            Notes
+                          </span>
+                          <span
+                            style={
+                              selectedDepartment.permissions?.canViewActivity
+                                ? styles.permissionBadgeOn
+                                : styles.permissionBadgeOff
+                            }
+                          >
+                            View Activity
+                          </span>
+                          <span
+                            style={
+                              selectedDepartment.permissions?.canManageWebsite
+                                ? styles.permissionBadgeOn
+                                : styles.permissionBadgeOff
+                            }
+                          >
+                            Website
+                          </span>
+                        </div>
+                      </div>
+
+                      <div style={styles.departmentMemberList}>
+                        {Array.isArray(selectedDepartment.members) &&
+                        selectedDepartment.members.length > 0 ? (
+                          selectedDepartment.members.map((member) => (
+                            <div key={member.userId} style={styles.departmentMemberRow}>
+                              <div style={styles.departmentMemberLeft}>
+                                <div style={styles.departmentMemberAvatar}>
+                                  {member.avatar ? (
+                                    <img
+                                      src={member.avatar}
+                                      alt={member.displayName}
+                                      style={styles.departmentMemberAvatarImg}
+                                    />
+                                  ) : (
+                                    getInitials(member.displayName || "M")
+                                  )}
+                                </div>
+
+                                <div>
+                                  <strong style={styles.departmentMemberName}>
+                                    {member.displayName}
+                                  </strong>
+                                  <p style={styles.departmentMemberMeta}>
+                                    @{member.username} •{" "}
+                                    {member.roleLabel || member.roleName || "Member"}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {canManageSettings && (
+                                <button
+                                  style={styles.deleteItemButton}
+                                  onClick={() =>
+                                    removeDepartmentMember(
+                                      selectedDepartment.key,
+                                      member.userId
+                                    )
+                                  }
+                                  disabled={removingDepartmentUserId === member.userId}
+                                >
+                                  {removingDepartmentUserId === member.userId
+                                    ? "Removing..."
+                                    : "Remove"}
+                                </button>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div style={styles.drawerEmpty}>
+                            No members in this department yet.
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -1329,15 +1659,25 @@ export default function Dashboard() {
                 <div style={styles.settingsList}>
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>
-                        Auto refresh members
-                      </strong>
+                      <strong style={styles.settingTitle}>Auto refresh members</strong>
                       <p style={styles.settingSub}>
                         Refresh synced member directory on demand.
                       </p>
                     </div>
                     <div style={styles.toggleOn}>
                       {canRefreshMembers ? "Allowed" : "Limited"}
+                    </div>
+                  </div>
+
+                  <div style={styles.settingRow}>
+                    <div>
+                      <strong style={styles.settingTitle}>Department</strong>
+                      <p style={styles.settingSub}>
+                        Your currently assigned internal team.
+                      </p>
+                    </div>
+                    <div style={styles.toggleOff}>
+                      {workspaceAccess?.viewer?.departmentLabel || "No Department"}
                     </div>
                   </div>
 
@@ -1356,9 +1696,7 @@ export default function Dashboard() {
 
                   <div style={styles.settingRow}>
                     <div>
-                      <strong style={styles.settingTitle}>
-                        Member sync status
-                      </strong>
+                      <strong style={styles.settingTitle}>Member sync status</strong>
                       <p style={styles.settingSub}>
                         View last successful workspace sync.
                       </p>
@@ -1377,1300 +1715,4 @@ export default function Dashboard() {
       </main>
     </div>
   );
-}
-
-function createStyles({ isMobile, isTablet, sidebarOpen }) {
-  return {
-    page: {
-      minHeight: "100vh",
-      width: "100%",
-      margin: 0,
-      display: "grid",
-      gridTemplateColumns: isMobile ? "1fr" : "320px 1fr",
-      background:
-        "radial-gradient(circle at top left, rgba(123,207,155,0.18), transparent 28%), radial-gradient(circle at bottom right, rgba(191,232,208,0.26), transparent 30%), linear-gradient(180deg, #f6fbf6, #edf6ef)",
-      fontFamily: "Inter, sans-serif",
-      color: "#203229",
-      overflow: "hidden",
-      position: "relative",
-    },
-
-    overlay: {
-      position: "fixed",
-      inset: 0,
-      background: "rgba(16, 25, 20, 0.42)",
-      zIndex: 19,
-    },
-
-    sidebar: {
-      position: isMobile ? "fixed" : "relative",
-      top: 0,
-      left: isMobile ? (sidebarOpen ? 0 : "-100%") : 0,
-      bottom: 0,
-      width: isMobile ? "86vw" : "auto",
-      maxWidth: isMobile ? "320px" : "none",
-      minHeight: "100vh",
-      padding: "20px 18px",
-      background: "linear-gradient(180deg, #2f5d46 0%, #1d3d2e 100%)",
-      color: "white",
-      boxShadow: "10px 0 40px rgba(0,0,0,0.22)",
-      display: "flex",
-      flexDirection: "column",
-      borderRight: "1px solid rgba(255,255,255,0.06)",
-      overflow: "hidden",
-      zIndex: 20,
-      transition: isMobile ? "left 0.25s ease" : "none",
-    },
-
-    sidebarGlow: {
-      position: "absolute",
-      top: "-100px",
-      left: "-40px",
-      width: "260px",
-      height: "260px",
-      background:
-        "radial-gradient(circle, rgba(128,255,182,0.20), transparent 72%)",
-      pointerEvents: "none",
-    },
-
-    sidebarTop: {
-      marginBottom: "18px",
-      position: "relative",
-      zIndex: 1,
-    },
-
-    logoWrap: {
-      width: "100%",
-      height: "136px",
-      borderRadius: "22px",
-      background:
-        "linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.05))",
-      border: "1px solid rgba(255,255,255,0.08)",
-      position: "relative",
-      overflow: "hidden",
-      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-    },
-
-    logoGlow: {
-      position: "absolute",
-      top: "50%",
-      left: "50%",
-      width: "180px",
-      height: "180px",
-      transform: "translate(-50%, -50%)",
-      background:
-        "radial-gradient(circle, rgba(120,255,170,0.16), transparent 70%)",
-      filter: "blur(18px)",
-      pointerEvents: "none",
-    },
-
-    logoImage: {
-      height: "92px",
-      width: "auto",
-      display: "block",
-      marginLeft: "-1px",
-      filter: "drop-shadow(0 10px 18px rgba(0,0,0,0.25))",
-      userSelect: "none",
-      pointerEvents: "none",
-      position: "relative",
-      zIndex: 1,
-      maxWidth: "100%",
-    },
-
-    profileCard: {
-      position: "relative",
-      display: "flex",
-      alignItems: "center",
-      gap: "14px",
-      marginBottom: "24px",
-      padding: "16px",
-      borderRadius: "22px",
-      background: "rgba(255,255,255,0.10)",
-      border: "1px solid rgba(255,255,255,0.10)",
-      boxShadow:
-        "0 12px 30px rgba(0,0,0,0.16), 0 0 24px rgba(124,255,180,0.08)",
-      overflow: "hidden",
-    },
-
-    profileGlow: {
-      position: "absolute",
-      inset: 0,
-      background:
-        "radial-gradient(circle at top left, rgba(143,255,190,0.14), transparent 46%)",
-      pointerEvents: "none",
-    },
-
-    avatar: {
-      width: "54px",
-      height: "54px",
-      borderRadius: "50%",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      background: "#4f8b67",
-      border: "2px solid rgba(255,255,255,0.15)",
-      boxShadow:
-        "0 0 0 3px rgba(124,255,180,0.15), 0 0 25px rgba(124,255,180,0.35), inset 0 1px 6px rgba(255,255,255,0.18)",
-      flexShrink: 0,
-      overflow: "hidden",
-      position: "relative",
-      zIndex: 1,
-    },
-
-    avatarImg: {
-      width: "100%",
-      height: "100%",
-      objectFit: "cover",
-      borderRadius: "50%",
-      display: "block",
-    },
-
-    profileTextWrap: {
-      minWidth: 0,
-      position: "relative",
-      zIndex: 1,
-    },
-
-    profileName: {
-      fontSize: "15px",
-      fontWeight: 700,
-      color: "#ffffff",
-      lineHeight: 1.2,
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      whiteSpace: "nowrap",
-    },
-
-    profileUser: {
-      fontSize: "13px",
-      color: "rgba(232,245,236,0.82)",
-      marginTop: "4px",
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      whiteSpace: "nowrap",
-    },
-
-    profileRole: {
-      fontSize: "12px",
-      color: "rgba(190,245,211,0.95)",
-      marginTop: "6px",
-      fontWeight: 700,
-      letterSpacing: "0.04em",
-    },
-
-    nav: {
-      display: "grid",
-      gap: "12px",
-      marginTop: "4px",
-      position: "relative",
-      zIndex: 1,
-    },
-
-    navItem: {
-      padding: "15px 18px",
-      borderRadius: "16px",
-      color: "rgba(255,255,255,0.88)",
-      fontSize: "16px",
-      fontWeight: 500,
-      cursor: "pointer",
-      transition: "background 0.18s ease, transform 0.18s ease",
-    },
-
-    navActive: {
-      padding: "15px 18px",
-      borderRadius: "16px",
-      background: "rgba(255,255,255,0.14)",
-      color: "#ffffff",
-      fontWeight: 700,
-      fontSize: "16px",
-      border: "1px solid rgba(255,255,255,0.08)",
-      boxShadow:
-        "0 10px 24px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.06)",
-      cursor: "pointer",
-    },
-
-    main: {
-      padding: isMobile ? "18px 16px 28px" : isTablet ? "28px 24px" : "32px 34px",
-      minWidth: 0,
-      width: "100%",
-    },
-
-    header: {
-      marginBottom: "22px",
-    },
-
-    headerLeft: {
-      display: "flex",
-      alignItems: "center",
-      gap: "12px",
-    },
-
-    menuButton: {
-      border: "1px solid rgba(47,93,70,0.12)",
-      background: "rgba(255,255,255,0.86)",
-      color: "#203229",
-      width: "46px",
-      height: "46px",
-      borderRadius: "14px",
-      cursor: "pointer",
-      fontSize: "20px",
-      fontWeight: 700,
-      boxShadow: "0 10px 30px rgba(30,60,40,0.06)",
-      flexShrink: 0,
-    },
-
-    kicker: {
-      fontSize: "12px",
-      textTransform: "uppercase",
-      letterSpacing: "0.14em",
-      color: "#6f8a7d",
-      margin: 0,
-    },
-
-    title: {
-      fontSize: isMobile ? "34px" : isTablet ? "40px" : "44px",
-      lineHeight: 1.05,
-      margin: "10px 0 0",
-      fontWeight: 800,
-    },
-
-    grid: {
-      display: "grid",
-      gridTemplateColumns: isMobile
-        ? "1fr"
-        : isTablet
-        ? "1fr 1fr"
-        : "1.5fr 1fr 1fr",
-      gap: "18px",
-    },
-
-    bottomGrid: {
-      display: "grid",
-      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-      gap: "20px",
-      marginTop: "20px",
-    },
-
-    cardLarge: {
-      gridColumn: isTablet ? "1 / -1" : "auto",
-      background: "rgba(255,255,255,0.78)",
-      borderRadius: "22px",
-      padding: isMobile ? "20px" : "24px",
-      backdropFilter: "blur(12px)",
-      border: "1px solid rgba(255,255,255,0.65)",
-      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
-      minWidth: 0,
-    },
-
-    card: {
-      background: "rgba(255,255,255,0.78)",
-      borderRadius: "22px",
-      padding: isMobile ? "20px" : "24px",
-      backdropFilter: "blur(12px)",
-      border: "1px solid rgba(255,255,255,0.65)",
-      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
-      minWidth: 0,
-    },
-
-    bottomCard: {
-      background: "rgba(255,255,255,0.78)",
-      borderRadius: "22px",
-      padding: isMobile ? "20px" : "24px",
-      backdropFilter: "blur(12px)",
-      border: "1px solid rgba(255,255,255,0.65)",
-      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
-      minWidth: 0,
-    },
-
-    placeholderCard: {
-      background: "rgba(255,255,255,0.78)",
-      borderRadius: "22px",
-      padding: isMobile ? "20px" : "24px",
-      backdropFilter: "blur(12px)",
-      border: "1px solid rgba(255,255,255,0.65)",
-      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
-      minWidth: 0,
-    },
-
-    label: {
-      fontSize: "12px",
-      textTransform: "uppercase",
-      letterSpacing: "0.12em",
-      color: "#6f8a7d",
-      margin: 0,
-    },
-
-    accountProfileCard: {
-      position: "relative",
-      display: "flex",
-      flexDirection: isMobile ? "column" : "row",
-      alignItems: isMobile ? "flex-start" : "center",
-      gap: "16px",
-      marginTop: "18px",
-      padding: "18px",
-      borderRadius: "18px",
-      background:
-        "linear-gradient(180deg, rgba(237,248,240,0.95), rgba(228,242,233,0.92))",
-      border: "1px solid rgba(111,160,128,0.18)",
-      boxShadow:
-        "0 16px 34px rgba(46,90,67,0.10), 0 0 26px rgba(113,201,145,0.10)",
-      overflow: "hidden",
-    },
-
-    accountProfileGlow: {
-      position: "absolute",
-      inset: 0,
-      background:
-        "radial-gradient(circle at top left, rgba(131,221,163,0.18), transparent 42%)",
-      pointerEvents: "none",
-    },
-
-    accountAvatar: {
-      width: isMobile ? "60px" : "66px",
-      height: isMobile ? "60px" : "66px",
-      borderRadius: "50%",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      background: "#4f8d68",
-      border: "2px solid rgba(255,255,255,0.6)",
-      boxShadow:
-        "0 0 0 4px rgba(124,255,180,0.18), 0 0 30px rgba(102,201,138,0.35), inset 0 2px 10px rgba(255,255,255,0.18)",
-      flexShrink: 0,
-      overflow: "hidden",
-    },
-
-    accountAvatarImg: {
-      width: "100%",
-      height: "100%",
-      objectFit: "cover",
-      borderRadius: "50%",
-      display: "block",
-    },
-
-    accountInfo: {
-      minWidth: 0,
-    },
-
-    accountName: {
-      margin: 0,
-      fontSize: isMobile ? "24px" : "28px",
-      lineHeight: 1.1,
-      color: "#203229",
-      fontWeight: 800,
-      wordBreak: "break-word",
-    },
-
-    accountUsername: {
-      margin: "8px 0 0",
-      fontSize: isMobile ? "16px" : "18px",
-      color: "#5b7467",
-      fontWeight: 500,
-      wordBreak: "break-word",
-    },
-
-    accountId: {
-      margin: "10px 0 0",
-      fontSize: isMobile ? "15px" : "16px",
-      color: "#6b7c73",
-      wordBreak: "break-word",
-    },
-
-    accountRole: {
-      margin: "10px 0 0",
-      fontSize: isMobile ? "15px" : "16px",
-      color: "#2f5d46",
-      fontWeight: 700,
-      wordBreak: "break-word",
-    },
-
-    stat: {
-      fontSize: isMobile ? "30px" : "34px",
-      margin: "14px 0 8px",
-      fontWeight: 700,
-    },
-
-    sub: {
-      color: "#6b7c73",
-      margin: "8px 0 0",
-      fontSize: isMobile ? "15px" : "16px",
-      lineHeight: 1.6,
-    },
-
-    bottomTitle: {
-      fontSize: isMobile ? "22px" : "26px",
-      marginTop: "12px",
-      marginBottom: "10px",
-      lineHeight: 1.2,
-    },
-
-    quickInfoGrid: {
-      display: "grid",
-      gridTemplateColumns: "repeat(3, 1fr)",
-      gap: "12px",
-      marginTop: "16px",
-    },
-
-    quickInfoPill: {
-      background: "rgba(237,248,240,0.95)",
-      border: "1px solid rgba(111,160,128,0.16)",
-      borderRadius: "18px",
-      padding: "14px",
-      display: "flex",
-      flexDirection: "column",
-      gap: "8px",
-      fontSize: "14px",
-      color: "#5b7467",
-    },
-
-    error: {
-      background: "#ffe5e5",
-      padding: "12px",
-      borderRadius: "12px",
-      color: "#7a2020",
-      border: "1px solid rgba(122,32,32,0.08)",
-    },
-
-    loading: {
-      background: "rgba(255,255,255,0.85)",
-      padding: "12px 14px",
-      borderRadius: "12px",
-      color: "#203229",
-      border: "1px solid rgba(47,93,70,0.08)",
-    },
-
-    panelStack: {
-      display: "grid",
-      gap: "18px",
-    },
-
-    activityTopGrid: {
-      display: "grid",
-      gridTemplateColumns: isMobile
-        ? "1fr"
-        : isTablet
-        ? "1fr 1fr"
-        : "repeat(4, 1fr)",
-      gap: "18px",
-    },
-
-    statCardEnhanced: {
-      background: "rgba(255,255,255,0.78)",
-      borderRadius: "22px",
-      padding: "22px",
-      backdropFilter: "blur(12px)",
-      border: "1px solid rgba(255,255,255,0.65)",
-      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
-    },
-
-    enhancedStatLabel: {
-      display: "block",
-      fontSize: "13px",
-      color: "#6f8a7d",
-      textTransform: "uppercase",
-      letterSpacing: "0.08em",
-      marginBottom: "10px",
-    },
-
-    enhancedStatValue: {
-      display: "block",
-      fontSize: "32px",
-      fontWeight: 800,
-      color: "#203229",
-      lineHeight: 1.1,
-    },
-
-    enhancedStatSub: {
-      display: "block",
-      marginTop: "10px",
-      fontSize: "14px",
-      color: "#6b7c73",
-    },
-
-    activityBodyGrid: {
-      display: "grid",
-      gridTemplateColumns: isMobile ? "1fr" : "1.35fr 1fr",
-      gap: "18px",
-    },
-
-    activityChartCard: {
-      background: "rgba(255,255,255,0.78)",
-      borderRadius: "22px",
-      padding: "24px",
-      backdropFilter: "blur(12px)",
-      border: "1px solid rgba(255,255,255,0.65)",
-      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
-    },
-
-    activitySideCard: {
-      background: "rgba(255,255,255,0.78)",
-      borderRadius: "22px",
-      padding: "24px",
-      backdropFilter: "blur(12px)",
-      border: "1px solid rgba(255,255,255,0.65)",
-      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
-    },
-
-    sectionTitle: {
-      fontSize: "22px",
-      fontWeight: 800,
-      color: "#203229",
-      margin: "10px 0 0",
-    },
-
-    activityChartBars: {
-      height: isMobile ? "220px" : "300px",
-      marginTop: "26px",
-      display: "grid",
-      gridTemplateColumns: "repeat(7, 1fr)",
-      gap: "14px",
-      alignItems: "end",
-    },
-
-    activityChartBarItem: {
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "end",
-      height: "100%",
-      minWidth: 0,
-    },
-
-    activityChartValue: {
-      fontSize: "12px",
-      color: "#5b7467",
-      marginBottom: "10px",
-      fontWeight: 700,
-    },
-
-    activityChartTrack: {
-      width: "100%",
-      maxWidth: "56px",
-      height: "190px",
-      borderRadius: "999px",
-      background: "rgba(232,242,235,0.95)",
-      border: "1px solid rgba(111,160,128,0.10)",
-      display: "flex",
-      alignItems: "flex-end",
-      justifyContent: "center",
-      padding: "6px",
-    },
-
-    activityChartFill: {
-      width: "100%",
-      borderRadius: "999px",
-      background: "linear-gradient(180deg, #72b48b 0%, #2f5d46 100%)",
-      boxShadow: "0 10px 22px rgba(47,93,70,0.28)",
-    },
-
-    activityChartLabel: {
-      fontSize: "12px",
-      color: "#6b7c73",
-      marginTop: "10px",
-      fontWeight: 700,
-    },
-
-    topList: {
-      display: "grid",
-      gap: "12px",
-      marginTop: "20px",
-    },
-
-    topListItem: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: "14px",
-      background: "rgba(237,248,240,0.95)",
-      border: "1px solid rgba(111,160,128,0.12)",
-      borderRadius: "18px",
-      padding: "14px",
-      cursor: "pointer",
-    },
-
-    topListLeft: {
-      display: "flex",
-      alignItems: "center",
-      gap: "12px",
-      minWidth: 0,
-    },
-
-    topRank: {
-      width: "34px",
-      height: "34px",
-      borderRadius: "50%",
-      background: "#2f5d46",
-      color: "#fff",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontWeight: 800,
-      fontSize: "12px",
-      flexShrink: 0,
-    },
-
-    topAvatar: {
-      width: "44px",
-      height: "44px",
-      borderRadius: "50%",
-      overflow: "hidden",
-      background: "#4f8d68",
-      color: "#fff",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontWeight: 700,
-      flexShrink: 0,
-    },
-
-    topAvatarImg: {
-      width: "100%",
-      height: "100%",
-      objectFit: "cover",
-      display: "block",
-    },
-
-    topName: {
-      display: "block",
-      fontSize: "15px",
-      color: "#203229",
-      whiteSpace: "nowrap",
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-    },
-
-    topMeta: {
-      margin: "4px 0 0",
-      fontSize: "13px",
-      color: "#6b7c73",
-      whiteSpace: "nowrap",
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-    },
-
-    topTime: {
-      fontSize: "14px",
-      fontWeight: 800,
-      color: "#2f5d46",
-      flexShrink: 0,
-    },
-
-    membersWrap: {
-      display: "grid",
-      gap: "18px",
-    },
-
-    drawerListItemTop: {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "12px",
-  marginBottom: "8px",
-},
-
-deleteItemButton: {
-  border: "1px solid rgba(190,80,80,0.18)",
-  background: "rgba(255,245,245,0.9)",
-  color: "#b24a4a",
-  borderRadius: "10px",
-  padding: "8px 12px",
-  fontSize: "12px",
-  fontWeight: 700,
-  cursor: "pointer",
-},
-
-dayValue: {
-  fontSize: "12px",
-  color: "#5d7467",
-  fontWeight: 700,
-  marginTop: "8px",
-},
-
-    membersTopBar: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: isMobile ? "stretch" : "center",
-      gap: "14px",
-      flexDirection: isMobile ? "column" : "row",
-    },
-
-    membersActions: {
-      display: "flex",
-      gap: "12px",
-      alignItems: "center",
-      flexDirection: isMobile ? "column" : "row",
-      width: isMobile ? "100%" : "auto",
-    },
-
-    membersTitle: {
-      margin: "10px 0 0",
-      fontSize: isMobile ? "28px" : "34px",
-      lineHeight: 1.1,
-      fontWeight: 800,
-      color: "#203229",
-    },
-
-    memberSearch: {
-      width: isMobile ? "100%" : "320px",
-      padding: "14px 16px",
-      borderRadius: "16px",
-      border: "1px solid rgba(47,93,70,0.12)",
-      outline: "none",
-      fontSize: "15px",
-      background: "rgba(255,255,255,0.86)",
-      color: "#203229",
-      boxShadow: "0 10px 30px rgba(30,60,40,0.05)",
-    },
-
-    refreshButton: {
-      padding: "14px 18px",
-      borderRadius: "16px",
-      border: "1px solid rgba(47,93,70,0.12)",
-      background: "#2f5d46",
-      color: "#fff",
-      fontSize: "14px",
-      fontWeight: 700,
-      cursor: "pointer",
-      boxShadow: "0 10px 25px rgba(47,93,70,0.18)",
-      minWidth: "110px",
-    },
-
-    membersSummaryRow: {
-      display: "grid",
-      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-      gap: "18px",
-    },
-
-    summaryCard: {
-      background: "rgba(255,255,255,0.78)",
-      borderRadius: "22px",
-      padding: isMobile ? "20px" : "24px",
-      backdropFilter: "blur(12px)",
-      border: "1px solid rgba(255,255,255,0.65)",
-      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
-      minWidth: 0,
-    },
-
-    summaryName: {
-      fontSize: isMobile ? "24px" : "28px",
-      margin: "14px 0 8px",
-      fontWeight: 700,
-      color: "#203229",
-    },
-
-    membersGrid: {
-      display: "grid",
-      gridTemplateColumns: isMobile
-        ? "1fr"
-        : isTablet
-        ? "1fr 1fr"
-        : "repeat(3, 1fr)",
-      gap: "18px",
-    },
-
-    memberCardClickable: {
-      position: "relative",
-      display: "flex",
-      alignItems: "center",
-      gap: "16px",
-      background: "rgba(255,255,255,0.78)",
-      borderRadius: "22px",
-      padding: "18px",
-      backdropFilter: "blur(12px)",
-      border: "1px solid rgba(255,255,255,0.65)",
-      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
-      minWidth: 0,
-      overflow: "hidden",
-      cursor: "pointer",
-    },
-
-    memberGlow: {
-      position: "absolute",
-      inset: 0,
-      background:
-        "radial-gradient(circle at top left, rgba(131,221,163,0.14), transparent 42%)",
-      pointerEvents: "none",
-    },
-
-    memberAvatar: {
-      width: "62px",
-      height: "62px",
-      borderRadius: "50%",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      background: "#4f8d68",
-      border: "2px solid rgba(255,255,255,0.6)",
-      boxShadow:
-        "0 0 0 4px rgba(124,255,180,0.16), 0 0 28px rgba(102,201,138,0.28), inset 0 2px 10px rgba(255,255,255,0.18)",
-      flexShrink: 0,
-      overflow: "hidden",
-      position: "relative",
-      zIndex: 1,
-    },
-
-    memberAvatarImg: {
-      width: "100%",
-      height: "100%",
-      objectFit: "cover",
-      display: "block",
-      borderRadius: "50%",
-    },
-
-    memberText: {
-      minWidth: 0,
-      position: "relative",
-      zIndex: 1,
-    },
-
-    memberName: {
-      margin: 0,
-      fontSize: "22px",
-      lineHeight: 1.1,
-      fontWeight: 800,
-      color: "#203229",
-      wordBreak: "break-word",
-    },
-
-    memberUsername: {
-      margin: "6px 0 0",
-      fontSize: "15px",
-      color: "#5b7467",
-      wordBreak: "break-word",
-    },
-
-    memberMetaRow: {
-      marginTop: "10px",
-      display: "flex",
-      flexWrap: "wrap",
-      gap: "8px",
-    },
-
-    memberBadge: {
-      display: "inline-flex",
-      alignItems: "center",
-      padding: "7px 10px",
-      borderRadius: "999px",
-      fontSize: "12px",
-      fontWeight: 700,
-      color: "#2f5d46",
-      background: "rgba(191, 232, 208, 0.55)",
-      border: "1px solid rgba(111,160,128,0.18)",
-    },
-
-    memberBadgeSoft: {
-      display: "inline-flex",
-      alignItems: "center",
-      padding: "7px 10px",
-      borderRadius: "999px",
-      fontSize: "12px",
-      fontWeight: 700,
-      color: "#5b7467",
-      background: "rgba(255,255,255,0.9)",
-      border: "1px solid rgba(47,93,70,0.08)",
-    },
-
-    emptyState: {
-      background: "rgba(255,255,255,0.78)",
-      borderRadius: "22px",
-      padding: "24px",
-      backdropFilter: "blur(12px)",
-      border: "1px solid rgba(255,255,255,0.65)",
-      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
-      color: "#5b7467",
-      fontSize: "16px",
-    },
-
-    sessionGrid: {
-      display: "grid",
-      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-      gap: "18px",
-    },
-
-    sessionCard: {
-      background: "rgba(255,255,255,0.78)",
-      borderRadius: "22px",
-      padding: "24px",
-      backdropFilter: "blur(12px)",
-      border: "1px solid rgba(255,255,255,0.65)",
-      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
-    },
-
-    sessionList: {
-      display: "grid",
-      gap: "12px",
-      marginTop: "20px",
-    },
-
-    sessionListItem: {
-      background: "rgba(237,248,240,0.95)",
-      border: "1px solid rgba(111,160,128,0.14)",
-      borderRadius: "18px",
-      padding: "14px",
-      display: "flex",
-      flexDirection: "column",
-      gap: "6px",
-      color: "#203229",
-    },
-
-    settingsGrid: {
-      display: "grid",
-      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-      gap: "18px",
-    },
-
-    settingsCard: {
-      background: "rgba(255,255,255,0.78)",
-      borderRadius: "22px",
-      padding: "24px",
-      backdropFilter: "blur(12px)",
-      border: "1px solid rgba(255,255,255,0.65)",
-      boxShadow: "0 20px 50px rgba(0,0,0,0.08)",
-    },
-
-    settingsList: {
-      display: "grid",
-      gap: "14px",
-      marginTop: "20px",
-    },
-
-    settingRow: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: "16px",
-      padding: "14px",
-      borderRadius: "18px",
-      background: "rgba(237,248,240,0.95)",
-      border: "1px solid rgba(111,160,128,0.14)",
-    },
-
-    settingTitle: {
-      display: "block",
-      fontSize: "15px",
-      color: "#203229",
-      marginBottom: "4px",
-    },
-
-    settingSub: {
-      margin: 0,
-      fontSize: "13px",
-      color: "#6b7c73",
-      lineHeight: 1.5,
-    },
-
-    toggleOn: {
-      padding: "8px 12px",
-      borderRadius: "999px",
-      background: "rgba(191, 232, 208, 0.75)",
-      color: "#2f5d46",
-      fontSize: "12px",
-      fontWeight: 800,
-      border: "1px solid rgba(111,160,128,0.14)",
-      flexShrink: 0,
-    },
-
-    toggleOff: {
-      padding: "8px 12px",
-      borderRadius: "999px",
-      background: "rgba(255,255,255,0.95)",
-      color: "#6b7c73",
-      fontSize: "12px",
-      fontWeight: 800,
-      border: "1px solid rgba(47,93,70,0.08)",
-      flexShrink: 0,
-    },
-
-    memberDrawerOverlay: {
-      position: "fixed",
-      inset: 0,
-      background: "rgba(16, 25, 20, 0.42)",
-      zIndex: 39,
-    },
-
-    memberDrawer: {
-      position: "fixed",
-      top: 0,
-      right: 0,
-      width: isMobile ? "100%" : "min(760px, 92vw)",
-      height: "100vh",
-      background: "linear-gradient(180deg, #f8fcf8 0%, #edf6ef 100%)",
-      boxShadow: "-10px 0 40px rgba(0,0,0,0.18)",
-      zIndex: 40,
-      padding: isMobile ? "18px 16px 24px" : "24px 24px 28px",
-      overflowY: "auto",
-      borderLeft: "1px solid rgba(111,160,128,0.14)",
-    },
-
-    memberDrawerHeader: {
-      display: "flex",
-      alignItems: "flex-start",
-      justifyContent: "space-between",
-      gap: "16px",
-      marginBottom: "18px",
-    },
-
-    memberDrawerHeaderLeft: {
-      display: "flex",
-      gap: "16px",
-      alignItems: "center",
-      minWidth: 0,
-    },
-
-    memberDrawerAvatar: {
-      width: "76px",
-      height: "76px",
-      borderRadius: "50%",
-      background: "#4f8d68",
-      color: "#fff",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      overflow: "hidden",
-      fontWeight: 800,
-      fontSize: "22px",
-      flexShrink: 0,
-      boxShadow:
-        "0 0 0 4px rgba(124,255,180,0.16), 0 0 28px rgba(102,201,138,0.28)",
-    },
-
-    memberDrawerAvatarImg: {
-      width: "100%",
-      height: "100%",
-      objectFit: "cover",
-      display: "block",
-    },
-
-    memberDrawerName: {
-      margin: 0,
-      fontSize: isMobile ? "26px" : "30px",
-      lineHeight: 1.1,
-      color: "#203229",
-      fontWeight: 800,
-    },
-
-    memberDrawerUsername: {
-      margin: "6px 0 0",
-      fontSize: "15px",
-      color: "#5b7467",
-    },
-
-    memberDrawerBadgeRow: {
-      display: "flex",
-      flexWrap: "wrap",
-      gap: "8px",
-      marginTop: "10px",
-    },
-
-    closeDrawerButton: {
-      width: "42px",
-      height: "42px",
-      borderRadius: "14px",
-      border: "1px solid rgba(47,93,70,0.12)",
-      background: "#fff",
-      color: "#203229",
-      fontSize: "18px",
-      fontWeight: 700,
-      cursor: "pointer",
-      flexShrink: 0,
-    },
-
-    memberDrawerGrid: {
-      display: "grid",
-      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-      gap: "18px",
-    },
-
-    drawerSection: {
-      background: "rgba(255,255,255,0.84)",
-      borderRadius: "22px",
-      padding: "20px",
-      border: "1px solid rgba(255,255,255,0.65)",
-      boxShadow: "0 20px 50px rgba(0,0,0,0.06)",
-    },
-
-    drawerSectionFull: {
-      gridColumn: isMobile ? "auto" : "1 / -1",
-      background: "rgba(255,255,255,0.84)",
-      borderRadius: "22px",
-      padding: "20px",
-      border: "1px solid rgba(255,255,255,0.65)",
-      boxShadow: "0 20px 50px rgba(0,0,0,0.06)",
-    },
-
-    drawerStatGrid: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: "12px",
-      marginTop: "18px",
-    },
-
-    drawerStatCard: {
-      background: "rgba(237,248,240,0.95)",
-      borderRadius: "18px",
-      border: "1px solid rgba(111,160,128,0.12)",
-      padding: "14px",
-      display: "grid",
-      gap: "6px",
-    },
-
-    drawerStatLabel: {
-      fontSize: "12px",
-      color: "#6f8a7d",
-      textTransform: "uppercase",
-      letterSpacing: "0.08em",
-    },
-
-    drawerStatValue: {
-      fontSize: "22px",
-      color: "#203229",
-      fontWeight: 800,
-    },
-
-    weeklyBars: {
-      marginTop: "20px",
-      display: "grid",
-      gridTemplateColumns: "repeat(7, 1fr)",
-      gap: "10px",
-      alignItems: "end",
-      minHeight: "220px",
-    },
-
-    weeklyBarWrap: {
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      gap: "8px",
-      minWidth: 0,
-    },
-
-    weeklyBarTrack: {
-      width: "100%",
-      maxWidth: "38px",
-      height: "120px",
-      borderRadius: "999px",
-      background: "rgba(232,242,235,0.95)",
-      padding: "5px",
-      display: "flex",
-      alignItems: "flex-end",
-      justifyContent: "center",
-      border: "1px solid rgba(111,160,128,0.10)",
-    },
-
-    weeklyBarFill: {
-      width: "100%",
-      borderRadius: "999px",
-      background: "linear-gradient(180deg, #72b48b 0%, #2f5d46 100%)",
-      boxShadow: "0 10px 22px rgba(47,93,70,0.20)",
-    },
-
-    weeklyBarLabel: {
-      fontSize: "11px",
-      color: "#6b7c73",
-      fontWeight: 700,
-    },
-
-    dayInput: {
-      width: "56px",
-      padding: "8px 6px",
-      textAlign: "center",
-      borderRadius: "12px",
-      border: "1px solid rgba(47,93,70,0.12)",
-      background: "#fff",
-      color: "#203229",
-      fontSize: "12px",
-      outline: "none",
-    },
-
-    drawerTextarea: {
-      width: "100%",
-      minHeight: "90px",
-      resize: "vertical",
-      marginTop: "16px",
-      borderRadius: "16px",
-      border: "1px solid rgba(47,93,70,0.12)",
-      background: "#fff",
-      padding: "14px",
-      fontFamily: "inherit",
-      fontSize: "14px",
-      color: "#203229",
-      outline: "none",
-      boxSizing: "border-box",
-    },
-
-    drawerTextareaLarge: {
-      width: "100%",
-      minHeight: "120px",
-      resize: "vertical",
-      marginTop: "16px",
-      borderRadius: "16px",
-      border: "1px solid rgba(47,93,70,0.12)",
-      background: "#fff",
-      padding: "14px",
-      fontFamily: "inherit",
-      fontSize: "14px",
-      color: "#203229",
-      outline: "none",
-      boxSizing: "border-box",
-    },
-
-    primaryButton: {
-      marginTop: "12px",
-      padding: "12px 16px",
-      borderRadius: "14px",
-      border: "1px solid rgba(47,93,70,0.12)",
-      background: "#2f5d46",
-      color: "#fff",
-      fontSize: "14px",
-      fontWeight: 700,
-      cursor: "pointer",
-      boxShadow: "0 10px 25px rgba(47,93,70,0.18)",
-    },
-
-    drawerList: {
-      display: "grid",
-      gap: "10px",
-      marginTop: "16px",
-    },
-
-    drawerListItem: {
-      background: "rgba(237,248,240,0.95)",
-      borderRadius: "16px",
-      border: "1px solid rgba(111,160,128,0.12)",
-      padding: "14px",
-      display: "grid",
-      gap: "6px",
-    },
-
-    drawerListTitle: {
-      fontSize: "14px",
-      color: "#203229",
-    },
-
-    drawerListText: {
-      margin: 0,
-      fontSize: "14px",
-      color: "#5b7467",
-      lineHeight: 1.5,
-      whiteSpace: "pre-wrap",
-    },
-
-    drawerListDate: {
-      fontSize: "12px",
-      color: "#6f8a7d",
-      fontWeight: 700,
-    },
-
-    drawerEmpty: {
-      background: "rgba(255,255,255,0.84)",
-      borderRadius: "16px",
-      border: "1px dashed rgba(111,160,128,0.18)",
-      padding: "14px",
-      color: "#6b7c73",
-      fontSize: "14px",
-    },
-  };
 }
