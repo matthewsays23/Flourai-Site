@@ -1313,11 +1313,28 @@ export default function Dashboard() {
 
         {user && activeTab === "Settings" && (
           <div style={styles.pageStack}>
-            <div style={styles.card}>
-              <div style={styles.sectionLabel}>Settings</div>
-              <div style={styles.sectionTitle}>Workspace configuration</div>
-              <div style={styles.mutedText}>
-                Manage department access, moderation tools, sessions, and future website permissions.
+            <div style={styles.settingsHero}>
+              <div>
+                <div style={styles.sectionLabel}>Settings</div>
+                <div style={styles.settingsHeroTitle}>Workspace configuration</div>
+                <div style={styles.settingsHeroText}>
+                  Manage access, department membership, activity quotas, and sync status from one clean place.
+                </div>
+              </div>
+
+              <div style={styles.settingsHeroStats}>
+                <div style={styles.settingsHeroStat}>
+                  <span>Role</span>
+                  <strong>{workspaceRoleLabel}</strong>
+                </div>
+                <div style={styles.settingsHeroStat}>
+                  <span>Department</span>
+                  <strong>{workspaceAccess?.viewer?.departmentLabel || "No Department"}</strong>
+                </div>
+                <div style={styles.settingsHeroStat}>
+                  <span>Target</span>
+                  <strong>{activitySummary.targetMinutes || 30}m</strong>
+                </div>
               </div>
             </div>
 
@@ -1326,77 +1343,19 @@ export default function Dashboard() {
               <div style={styles.loadingCard}>Loading workspace settings...</div>
             )}
 
-            <div style={styles.settingsGrid}>
-              <div style={styles.settingsCard}>
-                <div style={styles.sectionLabel}>Department Permissions</div>
-
-                <div style={styles.listStack}>
-                  <div style={styles.settingRow}>
-                    <div>
-                      <strong>Warnings system</strong>
-                      <div style={styles.settingSub}>
-                        Current access for your assigned department.
-                      </div>
-                    </div>
-                    <span style={canWarn ? styles.statusOn : styles.statusOff}>
-                      {canWarn ? "Allowed" : "No Access"}
-                    </span>
+            <div style={styles.settingsLayout}>
+              <section style={styles.settingsMainCard}>
+                <div style={styles.settingsCardHeader}>
+                  <div>
+                    <div style={styles.sectionLabel}>Department Manager</div>
+                    <div style={styles.sectionTitle}>Team access</div>
                   </div>
-
-                  <div style={styles.settingRow}>
-                    <div>
-                      <strong>Suspension records</strong>
-                      <div style={styles.settingSub}>
-                        Current access for your assigned department.
-                      </div>
-                    </div>
-                    <span style={canSuspend ? styles.statusOn : styles.statusOff}>
-                      {canSuspend ? "Allowed" : "No Access"}
-                    </span>
-                  </div>
-
-                  <div style={styles.settingRow}>
-                    <div>
-                      <strong>Private staff notes</strong>
-                      <div style={styles.settingSub}>
-                        Current access for your assigned department.
-                      </div>
-                    </div>
-                    <span style={canAddNotes ? styles.statusOn : styles.statusOff}>
-                      {canAddNotes ? "Allowed" : "No Access"}
-                    </span>
-                  </div>
-
-                  <div style={styles.settingRow}>
-                    <div>
-                      <strong>Activity visibility</strong>
-                      <div style={styles.settingSub}>
-                        View weekly activity and summaries.
-                      </div>
-                    </div>
-                    <span style={canViewActivity ? styles.statusOn : styles.statusOff}>
-                      {canViewActivity ? "Allowed" : "No Access"}
-                    </span>
-                  </div>
-
-                  <div style={styles.settingRow}>
-                    <div>
-                      <strong>Website controls</strong>
-                      <div style={styles.settingSub}>
-                        Reserved for future communications tools.
-                      </div>
-                    </div>
-                    <span style={canManageWebsite ? styles.statusOn : styles.statusOff}>
-                      {canManageWebsite ? "Allowed" : "Soon"}
-                    </span>
-                  </div>
+                  <span style={canManageSettings ? styles.statusOn : styles.statusOff}>
+                    {canManageSettings ? "Editable" : "View Only"}
+                  </span>
                 </div>
-              </div>
 
-              <div style={styles.settingsCard}>
-                <div style={styles.sectionLabel}>Department Manager</div>
-
-                <div style={styles.formStack}>
+                <div style={styles.settingsFormGrid}>
                   <div>
                     <label style={styles.inputLabel}>Department</label>
                     <div style={styles.selectWrap}>
@@ -1438,171 +1397,165 @@ export default function Dashboard() {
 
                   {canManageSettings && (
                     <button
-                      style={styles.primaryButton}
+                      style={styles.settingsSaveButton}
                       onClick={assignDepartmentMember}
                       disabled={!selectedDepartmentMemberId || assigningDepartment}
                     >
-                      {assigningDepartment ? "Saving..." : "Assign to Department"}
+                      {assigningDepartment ? "Saving..." : "Assign"}
                     </button>
                   )}
+                </div>
 
-                  {selectedDepartment && (
-                    <>
-                      <div style={styles.subCard}>
-                        <div style={styles.sectionTitle}>{selectedDepartment.label}</div>
-
-                        <div style={styles.badgeRow}>
-                          <span
-                            style={
-                              selectedDepartment.permissions?.canWarn
-                                ? styles.permissionOn
-                                : styles.permissionOff
-                            }
-                          >
-                            Warn
-                          </span>
-                          <span
-                            style={
-                              selectedDepartment.permissions?.canSuspend
-                                ? styles.permissionOn
-                                : styles.permissionOff
-                            }
-                          >
-                            Suspend
-                          </span>
-                          <span
-                            style={
-                              selectedDepartment.permissions?.canAddNotes
-                                ? styles.permissionOn
-                                : styles.permissionOff
-                            }
-                          >
-                            Notes
-                          </span>
-                          <span
-                            style={
-                              selectedDepartment.permissions?.canViewActivity
-                                ? styles.permissionOn
-                                : styles.permissionOff
-                            }
-                          >
-                            View Activity
-                          </span>
-                          <span
-                            style={
-                              selectedDepartment.permissions?.canManageWebsite
-                                ? styles.permissionOn
-                                : styles.permissionOff
-                            }
-                          >
-                            Website
-                          </span>
+                {selectedDepartment && (
+                  <div style={styles.departmentPanel}>
+                    <div>
+                      <div style={styles.departmentPanelTop}>
+                        <div>
+                          <div style={styles.sectionLabel}>Selected department</div>
+                          <div style={styles.departmentTitle}>
+                            {selectedDepartment.label}
+                          </div>
                         </div>
                       </div>
 
-                      <div style={styles.listStack}>
-                        {Array.isArray(selectedDepartment.members) &&
-                        selectedDepartment.members.length > 0 ? (
-                          selectedDepartment.members.map((member) => (
-                            <div key={member.userId} style={styles.departmentRow}>
-                              <div style={styles.departmentRowLeft}>
-                                <MemberAvatar
-                                  src={member.avatar}
-                                  name={member.displayName}
-                                  size={42}
-                                />
-                                <div>
-                                  <div style={styles.rankName}>{member.displayName}</div>
-                                  <div style={styles.rankMeta}>
-                                    @{member.username} •{" "}
-                                    {member.roleLabel || member.roleName || "Member"}
-                                  </div>
+                      <div style={styles.permissionGrid}>
+                        <span
+                          style={
+                            selectedDepartment.permissions?.canWarn
+                              ? styles.permissionOn
+                              : styles.permissionOff
+                          }
+                        >
+                          Warn
+                        </span>
+                        <span
+                          style={
+                            selectedDepartment.permissions?.canSuspend
+                              ? styles.permissionOn
+                              : styles.permissionOff
+                          }
+                        >
+                          Suspend
+                        </span>
+                        <span
+                          style={
+                            selectedDepartment.permissions?.canAddNotes
+                              ? styles.permissionOn
+                              : styles.permissionOff
+                          }
+                        >
+                          Notes
+                        </span>
+                        <span
+                          style={
+                            selectedDepartment.permissions?.canViewActivity
+                              ? styles.permissionOn
+                              : styles.permissionOff
+                          }
+                        >
+                          Activity
+                        </span>
+                        <span
+                          style={
+                            selectedDepartment.permissions?.canManageWebsite
+                              ? styles.permissionOn
+                              : styles.permissionOff
+                          }
+                        >
+                          Website
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={styles.departmentMembers}>
+                      {Array.isArray(selectedDepartment.members) &&
+                      selectedDepartment.members.length > 0 ? (
+                        selectedDepartment.members.map((member) => (
+                          <div key={member.userId} style={styles.departmentRow}>
+                            <div style={styles.departmentRowLeft}>
+                              <MemberAvatar
+                                src={member.avatar}
+                                name={member.displayName}
+                                size={42}
+                              />
+                              <div>
+                                <div style={styles.rankName}>{member.displayName}</div>
+                                <div style={styles.rankMeta}>
+                                  @{member.username} •{" "}
+                                  {member.roleLabel || member.roleName || "Member"}
                                 </div>
                               </div>
-
-                              {canManageSettings && (
-                                <button
-                                  style={styles.dangerGhostButton}
-                                  onClick={() =>
-                                    removeDepartmentMember(
-                                      selectedDepartment.key,
-                                      member.userId
-                                    )
-                                  }
-                                  disabled={removingDepartmentUserId === member.userId}
-                                >
-                                  {removingDepartmentUserId === member.userId
-                                    ? "Removing..."
-                                    : "Remove"}
-                                </button>
-                              )}
                             </div>
-                          ))
-                        ) : (
-                          <EmptyState text="No members in this department yet." />
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
 
-              <div style={styles.settingsCard}>
-                <div style={styles.sectionLabel}>Workspace</div>
-
-                <div style={styles.listStack}>
-                  <div style={styles.settingRow}>
-                    <div>
-                      <strong>Auto refresh members</strong>
-                      <div style={styles.settingSub}>
-                        Refresh synced member directory on demand.
-                      </div>
+                            {canManageSettings && (
+                              <button
+                                style={styles.dangerGhostButton}
+                                onClick={() =>
+                                  removeDepartmentMember(
+                                    selectedDepartment.key,
+                                    member.userId
+                                  )
+                                }
+                                disabled={removingDepartmentUserId === member.userId}
+                              >
+                                {removingDepartmentUserId === member.userId
+                                  ? "Removing..."
+                                  : "Remove"}
+                              </button>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <EmptyState text="No members in this department yet." />
+                      )}
                     </div>
-                    <span style={styles.statusOn}>
-                      {canRefreshMembers ? "Allowed" : "Limited"}
-                    </span>
                   </div>
+                )}
+              </section>
 
-                  <div style={styles.settingRow}>
-                    <div>
-                      <strong>Department</strong>
-                      <div style={styles.settingSub}>
-                        Your currently assigned internal team.
+              <aside style={styles.settingsSide}>
+                <div style={styles.settingsSideCard}>
+                  <div style={styles.sectionLabel}>Your Permissions</div>
+                  <div style={styles.permissionList}>
+                    {[
+                      ["Warnings", canWarn],
+                      ["Suspensions", canSuspend],
+                      ["Staff notes", canAddNotes],
+                      ["Activity", canViewActivity],
+                      ["Website", canManageWebsite],
+                    ].map(([label, enabled]) => (
+                      <div key={label} style={styles.permissionRow}>
+                        <span>{label}</span>
+                        <span style={enabled ? styles.statusOn : styles.statusOff}>
+                          {enabled ? "Allowed" : "No Access"}
+                        </span>
                       </div>
-                    </div>
-                    <span style={styles.statusOff}>
-                      {workspaceAccess?.viewer?.departmentLabel || "No Department"}
-                    </span>
-                  </div>
-
-                  <div style={styles.settingRow}>
-                    <div>
-                      <strong>Activity quotas</strong>
-                      <div style={styles.settingSub}>
-                        Weekly target currently set to{" "}
-                        {activitySummary.targetMinutes || 30} minutes.
-                      </div>
-                    </div>
-                    <span style={styles.statusOn}>
-                      {activitySummary.targetMinutes || 30}m
-                    </span>
-                  </div>
-
-                  <div style={styles.settingRow}>
-                    <div>
-                      <strong>Member sync status</strong>
-                      <div style={styles.settingSub}>
-                        View last successful workspace sync.
-                      </div>
-                    </div>
-                    <span style={styles.statusOff}>
-                      {lastMemberSync
-                        ? new Date(lastMemberSync).toLocaleDateString()
-                        : "Pending"}
-                    </span>
+                    ))}
                   </div>
                 </div>
-              </div>
+
+                <div style={styles.settingsSideCard}>
+                  <div style={styles.sectionLabel}>Workspace</div>
+                  <div style={styles.workspaceFacts}>
+                    <div style={styles.workspaceFact}>
+                      <span>Member refresh</span>
+                      <strong>{canRefreshMembers ? "Allowed" : "Limited"}</strong>
+                    </div>
+                    <div style={styles.workspaceFact}>
+                      <span>Weekly target</span>
+                      <strong>{activitySummary.targetMinutes || 30}m</strong>
+                    </div>
+                    <div style={styles.workspaceFact}>
+                      <span>Last sync</span>
+                      <strong>
+                        {lastMemberSync
+                          ? new Date(lastMemberSync).toLocaleDateString()
+                          : "Pending"}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+              </aside>
             </div>
           </div>
         )}
@@ -2186,10 +2139,187 @@ function getStyles({ isMobile, isTablet, sidebarOpen }) {
       flexWrap: "wrap",
     },
 
-    settingsGrid: {
+    settingsHero: {
       display: "grid",
-      gridTemplateColumns: isMobile || isTablet ? "1fr" : "1fr 1.15fr 1fr",
+      gridTemplateColumns: isMobile || isTablet ? "1fr" : "1fr auto",
       gap: 18,
+      alignItems: "end",
+      background:
+        "linear-gradient(135deg, rgba(255,255,255,0.9), rgba(236,247,239,0.84))",
+      borderRadius: 24,
+      padding: isMobile ? 18 : 24,
+      border: "1px solid rgba(23,51,31,0.08)",
+      boxShadow: "0 18px 45px rgba(22, 48, 30, 0.06)",
+    },
+
+    settingsHeroTitle: {
+      fontSize: isMobile ? 28 : 38,
+      lineHeight: 1.05,
+      fontWeight: 900,
+      color: "#17331f",
+      letterSpacing: 0,
+    },
+
+    settingsHeroText: {
+      maxWidth: 680,
+      marginTop: 10,
+      color: "#5d7262",
+      fontSize: 15,
+      lineHeight: 1.6,
+    },
+
+    settingsHeroStats: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(120px, 1fr))",
+      gap: 10,
+      minWidth: isMobile || isTablet ? 0 : 420,
+    },
+
+    settingsHeroStat: {
+      background: "rgba(255,255,255,0.72)",
+      border: "1px solid rgba(23,51,31,0.08)",
+      borderRadius: 16,
+      padding: 14,
+      minWidth: 0,
+    },
+
+    settingsLayout: {
+      display: "grid",
+      gridTemplateColumns: isMobile || isTablet ? "1fr" : "minmax(0, 1.5fr) minmax(320px, 0.8fr)",
+      gap: 18,
+      alignItems: "start",
+    },
+
+    settingsMainCard: {
+      background: "rgba(255,255,255,0.88)",
+      borderRadius: 24,
+      padding: isMobile ? 18 : 22,
+      border: "1px solid rgba(23,51,31,0.08)",
+      boxShadow: "0 18px 45px rgba(22, 48, 30, 0.06)",
+    },
+
+    settingsCardHeader: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      gap: 14,
+      marginBottom: 18,
+      flexWrap: "wrap",
+    },
+
+    settingsFormGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) minmax(0, 1fr) auto",
+      gap: 12,
+      alignItems: "end",
+      padding: isMobile ? 14 : 16,
+      borderRadius: 20,
+      background: "rgba(237,246,239,0.78)",
+      border: "1px solid rgba(23,51,31,0.07)",
+    },
+
+    settingsSaveButton: {
+      height: 48,
+      border: "none",
+      background: "linear-gradient(135deg, #17331f, #21462d)",
+      color: "#fff",
+      padding: "0 18px",
+      borderRadius: 14,
+      fontWeight: 850,
+      fontSize: 13,
+      cursor: "pointer",
+      boxShadow: "0 10px 20px rgba(22,48,30,0.1)",
+      whiteSpace: "nowrap",
+    },
+
+    departmentPanel: {
+      marginTop: 16,
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "minmax(220px, 0.74fr) minmax(0, 1.26fr)",
+      gap: 16,
+      alignItems: "start",
+    },
+
+    departmentPanelTop: {
+      display: "flex",
+      justifyContent: "space-between",
+      gap: 12,
+      alignItems: "flex-start",
+      marginBottom: 14,
+    },
+
+    departmentTitle: {
+      fontSize: 24,
+      fontWeight: 900,
+      color: "#17331f",
+      lineHeight: 1.1,
+      letterSpacing: 0,
+    },
+
+    permissionGrid: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 8,
+    },
+
+    departmentMembers: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      maxHeight: isMobile ? "none" : 430,
+      overflowY: isMobile ? "visible" : "auto",
+      paddingRight: isMobile ? 0 : 4,
+    },
+
+    settingsSide: {
+      display: "grid",
+      gap: 18,
+    },
+
+    settingsSideCard: {
+      background: "rgba(255,255,255,0.88)",
+      borderRadius: 24,
+      padding: isMobile ? 18 : 20,
+      border: "1px solid rgba(23,51,31,0.08)",
+      boxShadow: "0 18px 45px rgba(22, 48, 30, 0.06)",
+    },
+
+    permissionList: {
+      display: "grid",
+      gap: 10,
+      marginTop: 12,
+    },
+
+    permissionRow: {
+      minHeight: 46,
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: 12,
+      padding: "10px 12px",
+      borderRadius: 14,
+      background: "rgba(237,246,239,0.72)",
+      border: "1px solid rgba(23,51,31,0.06)",
+      color: "#27432e",
+      fontSize: 14,
+      fontWeight: 800,
+    },
+
+    workspaceFacts: {
+      display: "grid",
+      gap: 10,
+      marginTop: 12,
+    },
+
+    workspaceFact: {
+      display: "grid",
+      gridTemplateColumns: "1fr auto",
+      alignItems: "center",
+      gap: 12,
+      padding: "12px 0",
+      borderBottom: "1px solid rgba(23,51,31,0.08)",
+      color: "#5c7260",
+      fontSize: 14,
     },
 
     settingRow: {
