@@ -120,6 +120,7 @@ function EmptyState({ text }) {
 
 export default function Dashboard() {
   const { isMobile, isTablet } = useResponsive();
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("Overview");
 
@@ -1374,7 +1375,7 @@ export default function Dashboard() {
             )}
 
             <div style={styles.settingsGrid}>
-              <div style={styles.card}>
+              <div style={styles.settingsCard}>
                 <div style={styles.sectionLabel}>Department Permissions</div>
 
                 <div style={styles.listStack}>
@@ -1440,41 +1441,47 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div style={styles.card}>
+              <div style={styles.settingsCard}>
                 <div style={styles.sectionLabel}>Department Manager</div>
 
                 <div style={styles.formStack}>
                   <div>
                     <label style={styles.inputLabel}>Department</label>
-                    <select
-                      value={safeDepartmentKey}
-                      onChange={(e) => setSelectedDepartmentKey(e.target.value)}
-                      style={styles.select}
-                      disabled={!canManageSettings}
-                    >
-                      {departmentList.map((department) => (
-                        <option key={department.key} value={department.key}>
-                          {department.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div style={styles.selectWrap}>
+                      <select
+                        value={safeDepartmentKey}
+                        onChange={(e) => setSelectedDepartmentKey(e.target.value)}
+                        style={styles.select}
+                        disabled={!canManageSettings}
+                      >
+                        {departmentList.map((department) => (
+                          <option key={department.key} value={department.key}>
+                            {department.label}
+                          </option>
+                        ))}
+                      </select>
+                      <span style={styles.selectArrow}>⌄</span>
+                    </div>
                   </div>
 
                   <div>
                     <label style={styles.inputLabel}>Add member</label>
-                    <select
-                      value={selectedDepartmentMemberId}
-                      onChange={(e) => setSelectedDepartmentMemberId(e.target.value)}
-                      style={styles.select}
-                      disabled={!canManageSettings}
-                    >
-                      <option value="">Select a member...</option>
-                      {members.map((member) => (
-                        <option key={member.userId} value={member.userId}>
-                          {member.displayName} (@{member.username})
-                        </option>
-                      ))}
-                    </select>
+                    <div style={styles.selectWrap}>
+                      <select
+                        value={selectedDepartmentMemberId}
+                        onChange={(e) => setSelectedDepartmentMemberId(e.target.value)}
+                        style={styles.select}
+                        disabled={!canManageSettings}
+                      >
+                        <option value="">Select a member...</option>
+                        {members.map((member) => (
+                          <option key={member.userId} value={member.userId}>
+                            {member.displayName} (@{member.username})
+                          </option>
+                        ))}
+                      </select>
+                      <span style={styles.selectArrow}>⌄</span>
+                    </div>
                   </div>
 
                   {canManageSettings && (
@@ -1588,7 +1595,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div style={styles.card}>
+              <div style={styles.settingsCard}>
                 <div style={styles.sectionLabel}>Workspace</div>
 
                 <div style={styles.listStack}>
@@ -1652,7 +1659,7 @@ export default function Dashboard() {
   );
 }
 
-function getStyles({ isMobile, sidebarOpen }) {
+function getStyles({ isMobile, isTablet, sidebarOpen }) {
   const sidebarWidth = 260;
 
   return {
@@ -1675,7 +1682,7 @@ function getStyles({ isMobile, sidebarOpen }) {
       position: isMobile ? "fixed" : "sticky",
       top: 0,
       left: 0,
-      width: isMobile ? sidebarWidth : sidebarWidth,
+      width: sidebarWidth,
       height: "100vh",
       transform: isMobile
         ? sidebarOpen
@@ -1770,7 +1777,8 @@ function getStyles({ isMobile, sidebarOpen }) {
 
     navButtonActive: {
       border: "1px solid rgba(183,243,201,0.3)",
-      background: "linear-gradient(135deg, rgba(183,243,201,0.18), rgba(255,255,255,0.06))",
+      background:
+        "linear-gradient(135deg, rgba(183,243,201,0.18), rgba(255,255,255,0.06))",
       color: "#fff",
       padding: "12px 14px",
       borderRadius: 14,
@@ -1784,8 +1792,7 @@ function getStyles({ isMobile, sidebarOpen }) {
     main: {
       flex: 1,
       minWidth: 0,
-      padding: isMobile ? "18px 16px 28px" : "24px 26px 30px",
-      marginLeft: isMobile ? 0 : 0,
+      padding: isMobile ? "14px 12px 24px" : "clamp(18px, 2vw, 28px)",
     },
 
     topBar: {
@@ -1823,7 +1830,7 @@ function getStyles({ isMobile, sidebarOpen }) {
 
     pageTitle: {
       margin: 0,
-      fontSize: isMobile ? 26 : 34,
+      fontSize: "clamp(24px, 3.5vw, 38px)",
       lineHeight: 1.05,
       fontWeight: 800,
       color: "#17331f",
@@ -1839,7 +1846,16 @@ function getStyles({ isMobile, sidebarOpen }) {
       background: "rgba(255,255,255,0.82)",
       backdropFilter: "blur(10px)",
       borderRadius: 22,
-      padding: 20,
+      padding: isMobile ? 16 : "clamp(18px, 2vw, 24px)",
+      border: "1px solid rgba(23,51,31,0.08)",
+      boxShadow: "0 18px 45px rgba(22, 48, 30, 0.06)",
+    },
+
+    settingsCard: {
+      background: "rgba(255,255,255,0.84)",
+      backdropFilter: "blur(10px)",
+      borderRadius: 22,
+      padding: isMobile ? 16 : 20,
       border: "1px solid rgba(23,51,31,0.08)",
       boxShadow: "0 18px 45px rgba(22, 48, 30, 0.06)",
     },
@@ -1879,14 +1895,14 @@ function getStyles({ isMobile, sidebarOpen }) {
     },
 
     sectionTitle: {
-      fontSize: 22,
+      fontSize: "clamp(18px, 2.2vw, 24px)",
       fontWeight: 800,
       color: "#17331f",
       lineHeight: 1.15,
     },
 
     bigStat: {
-      fontSize: 34,
+      fontSize: "clamp(28px, 4vw, 40px)",
       fontWeight: 800,
       color: "#17331f",
       marginBottom: 8,
@@ -1912,7 +1928,7 @@ function getStyles({ isMobile, sidebarOpen }) {
 
     twoColGrid: {
       display: "grid",
-      gridTemplateColumns: isMobile ? "1fr" : "1.1fr 1fr",
+      gridTemplateColumns: isMobile || isTablet ? "1fr" : "1.1fr 1fr",
       gap: 18,
     },
 
@@ -1923,7 +1939,8 @@ function getStyles({ isMobile, sidebarOpen }) {
     },
 
     metricCard: {
-      background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(244,250,245,0.95))",
+      background:
+        "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(244,250,245,0.95))",
       borderRadius: 18,
       padding: 18,
       border: "1px solid rgba(23,51,31,0.08)",
@@ -2212,7 +2229,7 @@ function getStyles({ isMobile, sidebarOpen }) {
 
     settingsGrid: {
       display: "grid",
-      gridTemplateColumns: isMobile ? "1fr" : "1fr 1.15fr 1fr",
+      gridTemplateColumns: isMobile || isTablet ? "1fr" : "1fr 1.15fr 1fr",
       gap: 18,
     },
 
@@ -2265,24 +2282,47 @@ function getStyles({ isMobile, sidebarOpen }) {
 
     inputLabel: {
       display: "block",
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: 800,
       textTransform: "uppercase",
-      letterSpacing: "0.08em",
+      letterSpacing: "0.12em",
       color: "#6d8672",
       marginBottom: 8,
     },
 
+    selectWrap: {
+      position: "relative",
+    },
+
     select: {
       width: "100%",
-      padding: "12px 14px",
-      borderRadius: 14,
-      border: "1px solid rgba(23,51,31,0.12)",
-      background: "rgba(255,255,255,0.92)",
+      padding: "14px 44px 14px 16px",
+      borderRadius: 16,
+      border: "1px solid rgba(33, 66, 42, 0.12)",
+      background:
+        "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(244,250,245,0.94))",
       fontSize: 14,
+      fontWeight: 600,
       color: "#17331f",
       outline: "none",
       boxSizing: "border-box",
+      boxShadow: "0 10px 24px rgba(22,48,30,0.05)",
+      appearance: "none",
+      WebkitAppearance: "none",
+      MozAppearance: "none",
+      cursor: "pointer",
+      transition: "all 0.2s ease",
+    },
+
+    selectArrow: {
+      position: "absolute",
+      right: 16,
+      top: "50%",
+      transform: "translateY(-50%)",
+      pointerEvents: "none",
+      fontSize: 12,
+      color: "#5f7565",
+      fontWeight: 800,
     },
 
     subCard: {
@@ -2392,7 +2432,7 @@ function getStyles({ isMobile, sidebarOpen }) {
       position: "fixed",
       top: 0,
       right: 0,
-      width: isMobile ? "100%" : "min(920px, 92vw)",
+      width: isMobile ? "100%" : isTablet ? "100%" : "min(960px, 88vw)",
       height: "100vh",
       background: "#f4faf5",
       zIndex: 50,
