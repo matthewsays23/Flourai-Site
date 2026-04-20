@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import flouraiLogo from "../assets/Text_Logo.png";
-import logo from "../assets/home.png";
+import mark from "../assets/home.png";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL || "https://api.flourai.io";
@@ -18,9 +18,8 @@ function useResponsive() {
   }, []);
 
   return {
-    width,
-    isMobile: width < 768,
-    isTablet: width >= 768 && width < 1100,
+    isMobile: width < 780,
+    isTablet: width >= 780 && width < 1120,
   };
 }
 
@@ -43,9 +42,9 @@ export default function Home() {
         return;
       }
 
-      window.location.href = `${API_BASE}/api/auth/roblox/start`;
+      handleLogin();
     } catch {
-      window.location.href = `${API_BASE}/api/auth/roblox/start`;
+      handleLogin();
     }
   };
 
@@ -53,72 +52,66 @@ export default function Home() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.glowOne}></div>
-      <div style={styles.glowTwo}></div>
-      <div style={styles.glowThree}></div>
-
       <header style={styles.nav}>
-        <div style={styles.brandWrap}>
-          <img
-            src={logo}
-            alt="Flourai"
-            style={{
-              width: 32,
-              height: 32,
-              objectFit: "contain",
-              borderRadius: "8px",
-            }}
-          />
-
+        <button style={styles.brand} onClick={() => window.scrollTo(0, 0)}>
+          <img src={mark} alt="" style={styles.brandMark} />
           <span style={styles.brandText}>Flourai</span>
-        </div>
+        </button>
 
         {!isMobile && (
-          <div style={styles.navLinks}>
-            <span style={styles.navLink}>Home</span>
-            <span style={styles.navLink}>Workspace</span>
-            <span style={styles.navLink}>Activity</span>
-          </div>
+          <nav style={styles.navLinks} aria-label="Primary">
+            <a href="#home" style={styles.navLink}>
+              Home
+            </a>
+            <a href="#workspace" style={styles.navLink}>
+              Workspace
+            </a>
+            <a href="#activity" style={styles.navLink}>
+              Activity
+            </a>
+          </nav>
         )}
 
-        <div style={styles.navActions}>
-          {isMobile ? (
-            <button
-              style={styles.menuButton}
-              onClick={() => setMenuOpen((prev) => !prev)}
-              aria-label="Toggle menu"
-            >
-              ☰
-            </button>
-          ) : (
-            <button style={styles.navButton} onClick={handleWorkspace}>
-              Enter Flourai
-            </button>
-          )}
-        </div>
+        {isMobile ? (
+          <button
+            style={styles.menuButton}
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label="Toggle menu"
+          >
+            Menu
+          </button>
+        ) : (
+          <button style={styles.navButton} onClick={handleWorkspace}>
+            Enter Flourai
+          </button>
+        )}
       </header>
 
       {isMobile && menuOpen && (
         <div style={styles.mobileMenu}>
-          <span style={styles.mobileMenuItem}>Home</span>
-          <span style={styles.mobileMenuItem}>Workspace</span>
-          <span style={styles.mobileMenuItem}>Activity</span>
-          <button style={styles.mobileMenuButton} onClick={handleWorkspace}>
+          <a href="#home" style={styles.mobileLink}>
+            Home
+          </a>
+          <a href="#workspace" style={styles.mobileLink}>
+            Workspace
+          </a>
+          <a href="#activity" style={styles.mobileLink}>
+            Activity
+          </a>
+          <button style={styles.mobileButton} onClick={handleWorkspace}>
             Enter Flourai
           </button>
         </div>
       )}
 
-      <main style={styles.main}>
+      <main id="home" style={styles.main}>
         <section style={styles.hero}>
           <div style={styles.heroLeft}>
             <p style={styles.kicker}>Flourai workspace</p>
-
             <h1 style={styles.title}>Welcome to Flourai.</h1>
-
             <p style={styles.subtitle}>
               A refined garden-inspired workspace for activity tracking, staff
-              organization, sessions, and community management — built entirely
+              organization, sessions, and community management - built entirely
               around the Flourai experience.
             </p>
 
@@ -126,11 +119,7 @@ export default function Home() {
               <button style={styles.primaryButton} onClick={handleLogin}>
                 Continue with Roblox
               </button>
-
-              <button
-                style={styles.secondaryButton}
-                onClick={handleWorkspace}
-              >
+              <button style={styles.secondaryButton} onClick={handleWorkspace}>
                 View Workspace
               </button>
             </div>
@@ -140,12 +129,10 @@ export default function Home() {
                 <span style={styles.infoLabel}>Theme</span>
                 <strong style={styles.infoValue}>Botanical</strong>
               </div>
-
               <div style={styles.infoCard}>
                 <span style={styles.infoLabel}>Purpose</span>
                 <strong style={styles.infoValue}>Internal Management</strong>
               </div>
-
               <div style={styles.infoCard}>
                 <span style={styles.infoLabel}>Focus</span>
                 <strong style={styles.infoValue}>Activity & Staff</strong>
@@ -153,7 +140,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div style={styles.heroRight}>
+          <div id="workspace" style={styles.heroRight}>
             <div style={styles.logoPanel}>
               <img src={flouraiLogo} alt="Flourai" style={styles.logoImage} />
             </div>
@@ -162,31 +149,30 @@ export default function Home() {
               <div style={styles.workspaceTop}>
                 <div>
                   <p style={styles.workspaceLabel}>Flourai system</p>
-                  <h3 style={styles.workspaceTitle}>Workspace Preview</h3>
+                  <h2 style={styles.workspaceTitle}>Workspace Preview</h2>
                 </div>
-
-                <div style={styles.livePill}>Garden Live</div>
+                <span style={styles.livePill}>Garden Live</span>
               </div>
 
               <div style={styles.workspaceGrid}>
                 <div style={styles.workspaceLarge}>
                   <p style={styles.blockLabel}>Overview</p>
-                  <h4 style={styles.blockTitle}>Elegant, calm, organized.</h4>
+                  <h3 style={styles.blockTitle}>Elegant, calm, organized.</h3>
                   <p style={styles.blockText}>
-                    A central place for Flourai’s staff systems, member
+                    A central place for Flourai's staff systems, member
                     management, and internal operations.
                   </p>
                 </div>
 
-                <div style={styles.workspaceSmall}>
+                <div id="activity" style={styles.workspaceSmall}>
                   <p style={styles.blockLabel}>Activity</p>
-                  <h4 style={styles.smallStat}>24h</h4>
+                  <strong style={styles.smallStat}>24h</strong>
                   <p style={styles.blockText}>Tracked this week</p>
                 </div>
 
                 <div style={styles.workspaceSmall}>
                   <p style={styles.blockLabel}>Sessions</p>
-                  <h4 style={styles.smallStat}>08</h4>
+                  <strong style={styles.smallStat}>08</strong>
                   <p style={styles.blockText}>Managed events</p>
                 </div>
               </div>
@@ -203,32 +189,32 @@ export default function Home() {
           </div>
 
           <div style={styles.featureGrid}>
-            <div style={styles.featureCard}>
-              <div style={styles.featureDot}></div>
+            <article style={styles.featureCard}>
+              <div style={styles.featureDot} />
               <h3 style={styles.featureTitle}>Activity Tracking</h3>
               <p style={styles.featureText}>
                 Monitor weekly progress, participation, and contribution with a
                 cleaner interface tailored to Flourai.
               </p>
-            </div>
+            </article>
 
-            <div style={styles.featureCard}>
-              <div style={styles.featureDot}></div>
+            <article style={styles.featureCard}>
+              <div style={styles.featureDot} />
               <h3 style={styles.featureTitle}>Staff Oversight</h3>
               <p style={styles.featureText}>
                 Organize internal roles, sessions, and moderation through a
                 softer management experience.
               </p>
-            </div>
+            </article>
 
-            <div style={styles.featureCard}>
-              <div style={styles.featureDot}></div>
+            <article style={styles.featureCard}>
+              <div style={styles.featureDot} />
               <h3 style={styles.featureTitle}>Flourai Identity</h3>
               <p style={styles.featureText}>
-                Every part of the workspace reflects Flourai’s own visual style,
+                Every part of the workspace reflects Flourai's visual style,
                 tone, and garden-inspired atmosphere.
               </p>
-            </div>
+            </article>
           </div>
         </section>
       </main>
@@ -243,408 +229,429 @@ function createStyles({ isMobile, isTablet }) {
     page: {
       minHeight: "100vh",
       position: "relative",
-      overflow: "hidden",
+      overflowX: "hidden",
       background:
-        "linear-gradient(180deg, #fbfff9 0%, #f2f9f1 46%, #edf6ef 100%)",
+        "radial-gradient(circle at 7% 15%, rgba(155,214,172,0.26), transparent 18%), linear-gradient(180deg, #fbfdf8 0%, #f4f8f1 48%, #edf5ee 100%)",
+      color: "#1c2f25",
       fontFamily:
         'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      color: "#203229",
     },
-    glowOne: {
-      position: "absolute",
-      top: isMobile ? "-160px" : "-120px",
-      left: isMobile ? "-180px" : "-120px",
-      width: isMobile ? "360px" : "520px",
-      height: isMobile ? "360px" : "520px",
-      borderRadius: "999px",
-      background: "rgba(123, 207, 155, 0.28)",
-      filter: `blur(${isMobile ? 70 : 90}px)`,
-    },
-    glowTwo: {
-      position: "absolute",
-      bottom: "-120px",
-      right: isMobile ? "-140px" : "-60px",
-      width: isMobile ? "320px" : "500px",
-      height: isMobile ? "320px" : "500px",
-      borderRadius: "999px",
-      background: "rgba(191, 232, 208, 0.34)",
-      filter: `blur(${isMobile ? 70 : 90}px)`,
-    },
-    glowThree: {
-      position: "absolute",
-      top: isMobile ? "160px" : "220px",
-      right: isMobile ? "10px" : "220px",
-      width: isMobile ? "160px" : "260px",
-      height: isMobile ? "160px" : "260px",
-      borderRadius: "999px",
-      background: "rgba(215, 182, 111, 0.16)",
-      filter: `blur(${isMobile ? 50 : 70}px)`,
-    },
+
     nav: {
       position: "relative",
-      zIndex: 3,
-      display: "flex",
-      justifyContent: "space-between",
+      zIndex: 4,
+      minHeight: 76,
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr auto" : "1fr auto 1fr",
       alignItems: "center",
-      gap: "16px",
-      padding: isMobile ? "18px 16px" : isTablet ? "22px 24px" : "26px 40px",
+      gap: 14,
+      padding: isMobile ? "14px 16px" : "18px 40px",
     },
-    brandWrap: {
+
+    brand: {
+      border: 0,
+      background: "transparent",
+      padding: 0,
       display: "flex",
       alignItems: "center",
-      gap: "12px",
-      minWidth: 0,
+      gap: 10,
+      cursor: "pointer",
+      justifySelf: "start",
+      color: "#1c2f25",
     },
-    brandLeaf: {
-      width: "14px",
-      height: "14px",
-      borderRadius: "999px",
-      background: "linear-gradient(135deg, #7bcf9b 0%, #2f5d46 100%)",
-      boxShadow: "0 0 20px rgba(109,189,139,0.5)",
-      flexShrink: 0,
+
+    brandMark: {
+      width: 34,
+      height: 34,
+      objectFit: "cover",
+      borderRadius: 10,
+      filter: "drop-shadow(0 10px 18px rgba(53, 98, 68, 0.18))",
     },
+
     brandText: {
-      fontSize: isMobile ? "22px" : "24px",
-      fontWeight: 700,
-      letterSpacing: "-0.02em",
+      fontSize: isMobile ? 22 : 24,
+      fontWeight: 800,
+      letterSpacing: 0,
     },
+
     navLinks: {
       display: "flex",
-      gap: isTablet ? "20px" : "28px",
-      color: "#5f7668",
-      fontWeight: 500,
-    },
-    navLink: {
-      cursor: "default",
-    },
-    navActions: {
-      display: "flex",
       alignItems: "center",
-      gap: "12px",
+      justifyContent: "center",
+      gap: isTablet ? 26 : 36,
+      color: "#59675f",
+      fontSize: 16,
+      fontWeight: 700,
     },
+
+    navLink: {
+      cursor: "pointer",
+    },
+
     navButton: {
-      border: "1px solid rgba(47,93,70,0.12)",
-      background: "rgba(255,255,255,0.78)",
-      color: "#203229",
-      padding: "13px 20px",
-      borderRadius: "16px",
+      justifySelf: "end",
+      height: 50,
+      minWidth: 156,
+      borderRadius: 14,
+      border: "1px solid rgba(28,47,37,0.08)",
+      background: "rgba(255,255,255,0.76)",
+      color: "#1c2f25",
+      fontSize: 16,
+      fontWeight: 800,
       cursor: "pointer",
-      fontSize: "15px",
-      fontWeight: 700,
-      boxShadow: "0 10px 30px rgba(30,60,40,0.06)",
-      whiteSpace: "nowrap",
+      boxShadow: "0 18px 42px rgba(40,70,52,0.08)",
     },
+
     menuButton: {
-      border: "1px solid rgba(47,93,70,0.12)",
+      height: 44,
+      borderRadius: 14,
+      border: "1px solid rgba(28,47,37,0.1)",
       background: "rgba(255,255,255,0.85)",
-      color: "#203229",
-      width: "46px",
-      height: "46px",
-      borderRadius: "14px",
+      color: "#1c2f25",
+      padding: "0 14px",
       cursor: "pointer",
-      fontSize: "20px",
-      fontWeight: 700,
-      boxShadow: "0 10px 30px rgba(30,60,40,0.06)",
+      fontWeight: 800,
     },
+
     mobileMenu: {
       position: "relative",
-      zIndex: 3,
-      margin: "0 16px 10px",
-      padding: "14px",
-      borderRadius: "22px",
-      background: "rgba(255,255,255,0.82)",
-      border: "1px solid rgba(255,255,255,0.95)",
-      boxShadow: "0 18px 40px rgba(24,48,36,0.08)",
+      zIndex: 5,
+      margin: "0 18px 12px",
+      padding: 14,
+      borderRadius: 18,
+      background: "rgba(255,255,255,0.86)",
+      border: "1px solid rgba(28,47,37,0.08)",
+      boxShadow: "0 22px 45px rgba(40,70,52,0.1)",
       display: "grid",
-      gap: "12px",
-      backdropFilter: "blur(12px)",
-      WebkitBackdropFilter: "blur(12px)",
+      gap: 10,
     },
-    mobileMenuItem: {
-      fontSize: "15px",
-      fontWeight: 600,
-      color: "#3a5245",
-      padding: "6px 2px",
+
+    mobileLink: {
+      color: "#52625a",
+      fontWeight: 800,
+      padding: "8px 4px",
     },
-    mobileMenuButton: {
-      marginTop: "4px",
-      border: "none",
-      background: "linear-gradient(135deg, #2f5d46 0%, #214434 100%)",
-      color: "#fff",
-      padding: "14px 16px",
-      borderRadius: "16px",
-      cursor: "pointer",
-      fontSize: "15px",
-      fontWeight: 700,
-      boxShadow: "0 18px 34px rgba(33,68,52,0.18)",
+
+    mobileButton: {
+      height: 48,
+      border: 0,
+      borderRadius: 14,
+      background: "#294d38",
+      color: "#ffffff",
+      fontWeight: 800,
     },
+
     main: {
       position: "relative",
       zIndex: 2,
-      padding: isMobile
-        ? "10px 16px 48px"
-        : isTablet
-        ? "14px 24px 56px"
-        : "20px 40px 70px",
+      padding: isMobile ? "18px 16px 58px" : "24px 40px 72px",
     },
+
     hero: {
-      maxWidth: "1380px",
+      maxWidth: 1500,
       margin: "0 auto",
-      minHeight: isMobile ? "auto" : "78vh",
+      minHeight: isMobile ? "auto" : "620px",
       display: "grid",
-      gridTemplateColumns: isMobile
-        ? "1fr"
-        : isTablet
-        ? "1fr"
-        : "1.05fr 0.95fr",
-      gap: isMobile ? "20px" : isTablet ? "24px" : "28px",
+      gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr" : "1.02fr 0.92fr",
+      gap: isMobile ? 24 : 36,
       alignItems: "center",
     },
+
     heroLeft: {
-      paddingRight: isMobile ? 0 : "14px",
-      order: 1,
+      minWidth: 0,
     },
+
     kicker: {
-      margin: 0,
-      marginBottom: "16px",
+      margin: "0 0 18px",
+      color: "#7b8f83",
+      fontSize: 13,
+      fontWeight: 900,
+      letterSpacing: "0.22em",
       textTransform: "uppercase",
-      letterSpacing: "0.18em",
-      fontSize: "13px",
-      color: "#6a8b79",
-      fontWeight: 700,
     },
+
     title: {
       margin: 0,
-      fontSize: isMobile ? "44px" : isTablet ? "60px" : "76px",
-      lineHeight: 0.96,
-      letterSpacing: "-0.05em",
+      maxWidth: 720,
+      fontSize: isMobile ? 44 : isTablet ? 58 : 72,
+      lineHeight: 0.98,
+      fontWeight: 900,
+      letterSpacing: 0,
+      color: "#1b2e24",
     },
+
     subtitle: {
-      marginTop: "22px",
-      maxWidth: "680px",
-      fontSize: isMobile ? "16px" : isTablet ? "18px" : "20px",
-      lineHeight: isMobile ? 1.7 : 1.8,
-      color: "#53685d",
+      margin: "24px 0 0",
+      maxWidth: 720,
+      color: "#5f6f66",
+      fontSize: isMobile ? 17 : 21,
+      lineHeight: 1.7,
+      fontWeight: 500,
     },
+
     buttonRow: {
       display: "flex",
       flexDirection: isMobile ? "column" : "row",
-      gap: "14px",
-      marginTop: "28px",
-      flexWrap: "wrap",
+      gap: 14,
+      marginTop: 32,
+      alignItems: isMobile ? "stretch" : "center",
     },
+
     primaryButton: {
-      border: "none",
-      background: "linear-gradient(135deg, #2f5d46 0%, #214434 100%)",
-      color: "white",
-      padding: "15px 24px",
-      borderRadius: "18px",
+      height: 54,
+      border: 0,
+      borderRadius: 14,
+      background: "#294d38",
+      color: "#ffffff",
+      padding: "0 24px",
       cursor: "pointer",
-      fontSize: "15px",
-      fontWeight: 700,
-      boxShadow: "0 18px 34px rgba(33,68,52,0.22)",
-      width: isMobile ? "100%" : "auto",
+      fontSize: 16,
+      fontWeight: 850,
+      boxShadow: "0 22px 38px rgba(41,77,56,0.2)",
     },
+
     secondaryButton: {
-      border: "1px solid rgba(47,93,70,0.12)",
-      background: "rgba(255,255,255,0.8)",
-      color: "#203229",
-      padding: "15px 24px",
-      borderRadius: "18px",
+      height: 54,
+      borderRadius: 14,
+      border: "1px solid rgba(28,47,37,0.08)",
+      background: "rgba(255,255,255,0.82)",
+      color: "#1d3026",
+      padding: "0 24px",
       cursor: "pointer",
-      fontSize: "15px",
-      fontWeight: 700,
-      boxShadow: "0 12px 28px rgba(0,0,0,0.04)",
-      width: isMobile ? "100%" : "auto",
+      fontSize: 16,
+      fontWeight: 850,
+      boxShadow: "0 18px 38px rgba(40,70,52,0.07)",
     },
+
     infoRow: {
-      marginTop: "26px",
+      marginTop: 28,
       display: "grid",
       gridTemplateColumns: isMobile
         ? "1fr"
         : compact
         ? "repeat(2, minmax(0, 1fr))"
-        : "repeat(3, minmax(160px, 1fr))",
-      gap: "14px",
+        : "repeat(3, minmax(0, 1fr))",
+      gap: 14,
+      maxWidth: 760,
     },
+
     infoCard: {
-      minWidth: 0,
-      background: "rgba(255,255,255,0.78)",
-      border: "1px solid rgba(255,255,255,0.9)",
-      borderRadius: "18px",
-      padding: "14px 16px",
-      boxShadow: "0 10px 30px rgba(30,60,40,0.05)",
+      minHeight: 78,
+      borderRadius: 16,
+      background: "rgba(255,255,255,0.72)",
+      border: "1px solid rgba(255,255,255,0.86)",
+      padding: "16px 18px",
+      boxShadow: "0 22px 45px rgba(40,70,52,0.08)",
     },
+
     infoLabel: {
       display: "block",
-      fontSize: "12px",
+      color: "#7d9286",
+      fontSize: 12,
+      fontWeight: 900,
+      letterSpacing: "0.22em",
       textTransform: "uppercase",
-      letterSpacing: "0.14em",
-      color: "#769181",
-      marginBottom: "7px",
-      fontWeight: 700,
+      marginBottom: 10,
     },
+
     infoValue: {
-      fontSize: "15px",
+      color: "#21342a",
+      fontSize: 16,
+      fontWeight: 850,
     },
+
     heroRight: {
       display: "grid",
-      gap: "18px",
-      order: 2,
+      gap: 18,
+      minWidth: 0,
     },
+
     logoPanel: {
-      background: "rgba(255,255,255,0.72)",
-      border: "1px solid rgba(255,255,255,0.9)",
-      borderRadius: isMobile ? "24px" : "32px",
-      padding: isMobile ? "20px" : "28px",
-      boxShadow: "0 25px 60px rgba(24,48,36,0.08)",
-      backdropFilter: "blur(14px)",
-      WebkitBackdropFilter: "blur(14px)",
+      minHeight: isMobile ? 150 : 160,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 26,
+      background: "rgba(255,255,255,0.78)",
+      border: "1px solid rgba(255,255,255,0.88)",
+      boxShadow: "0 26px 65px rgba(40,70,52,0.08)",
+      padding: isMobile ? 18 : 24,
+      overflow: "hidden",
     },
+
     logoImage: {
-      width: "100%",
-      display: "block",
+      width: "min(760px, 100%)",
+      height: "auto",
       objectFit: "contain",
-      filter: "drop-shadow(0 18px 26px rgba(47,93,70,0.18))",
+      filter: "drop-shadow(0 18px 28px rgba(42,86,58,0.16))",
     },
+
     workspaceCard: {
-      background:
-        "linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(247,252,248,0.72) 100%)",
-      border: "1px solid rgba(255,255,255,0.9)",
-      borderRadius: isMobile ? "24px" : "28px",
-      padding: isMobile ? "18px" : "22px",
-      boxShadow: "0 25px 60px rgba(24,48,36,0.08)",
+      borderRadius: 26,
+      background: "rgba(255,255,255,0.76)",
+      border: "1px solid rgba(255,255,255,0.88)",
+      boxShadow: "0 26px 65px rgba(40,70,52,0.08)",
+      padding: isMobile ? 18 : 24,
     },
+
     workspaceTop: {
       display: "flex",
       flexDirection: isMobile ? "column" : "row",
       justifyContent: "space-between",
       alignItems: isMobile ? "flex-start" : "center",
-      gap: "10px",
-      marginBottom: "16px",
+      gap: 16,
+      marginBottom: 20,
     },
+
     workspaceLabel: {
-      margin: 0,
-      fontSize: "12px",
+      margin: "0 0 10px",
+      color: "#7b8f83",
+      fontSize: 12,
+      fontWeight: 900,
+      letterSpacing: "0.22em",
       textTransform: "uppercase",
-      letterSpacing: "0.16em",
-      color: "#739080",
-      fontWeight: 700,
     },
+
     workspaceTitle: {
-      margin: "8px 0 0",
-      fontSize: isMobile ? "24px" : "28px",
+      margin: 0,
+      color: "#1b2e24",
+      fontSize: isMobile ? 28 : 34,
+      lineHeight: 1.05,
+      fontWeight: 900,
+      letterSpacing: 0,
     },
+
     livePill: {
-      padding: "8px 12px",
-      borderRadius: "999px",
-      background: "rgba(191, 232, 208, 0.52)",
-      color: "#2f5d46",
-      fontWeight: 700,
-      fontSize: "13px",
+      height: 34,
+      display: "inline-flex",
+      alignItems: "center",
+      borderRadius: 999,
+      background: "#dceee3",
+      color: "#355c42",
+      padding: "0 14px",
+      fontSize: 14,
+      fontWeight: 850,
+      whiteSpace: "nowrap",
     },
+
     workspaceGrid: {
       display: "grid",
-      gridTemplateColumns: isMobile
-        ? "1fr"
-        : isTablet
-        ? "1fr 1fr"
-        : "1.15fr 1fr 1fr",
-      gap: "14px",
+      gridTemplateColumns: isMobile ? "1fr" : "1.15fr 1fr 1fr",
+      gap: 14,
     },
+
     workspaceLarge: {
-      gridColumn: isMobile ? "auto" : isTablet ? "1 / -1" : "auto",
-      background: "rgba(242, 249, 241, 0.95)",
-      borderRadius: "22px",
-      padding: "18px",
-      minHeight: isMobile ? "auto" : "150px",
+      minHeight: 220,
+      borderRadius: 20,
+      background: "rgba(236,246,239,0.92)",
+      padding: 20,
     },
+
     workspaceSmall: {
-      background: "rgba(232, 245, 236, 0.95)",
-      borderRadius: "22px",
-      padding: "18px",
-      minHeight: isMobile ? "auto" : "150px",
+      minHeight: 220,
+      borderRadius: 20,
+      background: "rgba(236,246,239,0.92)",
+      padding: 20,
     },
+
     blockLabel: {
-      margin: 0,
-      fontSize: "12px",
+      margin: "0 0 16px",
+      color: "#7b8f83",
+      fontSize: 11,
+      fontWeight: 900,
+      letterSpacing: "0.22em",
       textTransform: "uppercase",
-      letterSpacing: "0.14em",
-      color: "#749081",
-      fontWeight: 700,
     },
+
     blockTitle: {
-      margin: "10px 0 8px",
-      fontSize: isMobile ? "22px" : "24px",
+      margin: "0 0 12px",
+      color: "#1d3026",
+      fontSize: isMobile ? 24 : 26,
       lineHeight: 1.1,
+      fontWeight: 900,
+      letterSpacing: 0,
     },
+
     blockText: {
       margin: 0,
-      color: "#587063",
+      color: "#67776e",
+      fontSize: 16,
       lineHeight: 1.65,
-      fontSize: isMobile ? "15px" : "16px",
+      fontWeight: 500,
     },
+
     smallStat: {
-      margin: "16px 0 8px",
-      fontSize: isMobile ? "32px" : "36px",
+      display: "block",
+      color: "#14241b",
+      fontSize: 44,
       lineHeight: 1,
+      letterSpacing: "0.08em",
+      marginBottom: 12,
     },
+
     bottomSection: {
-      maxWidth: "1380px",
-      margin: isMobile ? "28px auto 0" : "6px auto 0",
-      paddingTop: "12px",
+      maxWidth: 1500,
+      margin: isMobile ? "56px auto 0" : "72px auto 0",
     },
+
     bottomHeader: {
-      marginBottom: "18px",
+      marginBottom: 20,
     },
+
     bottomKicker: {
       margin: 0,
-      fontSize: "12px",
+      color: "#7b8f83",
+      fontSize: 13,
+      fontWeight: 900,
+      letterSpacing: "0.22em",
       textTransform: "uppercase",
-      letterSpacing: "0.16em",
-      color: "#72907f",
-      fontWeight: 700,
     },
+
     bottomTitle: {
-      margin: "10px 0 0",
-      fontSize: isMobile ? "30px" : isTablet ? "36px" : "42px",
-      letterSpacing: "-0.03em",
-      maxWidth: "760px",
-      lineHeight: 1.08,
+      margin: "12px 0 0",
+      maxWidth: 720,
+      color: "#1b2e24",
+      fontSize: isMobile ? 34 : 48,
+      lineHeight: 1.02,
+      fontWeight: 900,
+      letterSpacing: 0,
     },
+
     featureGrid: {
       display: "grid",
-      gridTemplateColumns: isMobile
-        ? "1fr"
-        : isTablet
-        ? "1fr 1fr"
-        : "repeat(3, 1fr)",
-      gap: "18px",
-      marginTop: "18px",
+      gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr 1fr" : "repeat(3, 1fr)",
+      gap: 14,
     },
+
     featureCard: {
-      background: "rgba(255,255,255,0.78)",
-      border: "1px solid rgba(255,255,255,0.9)",
-      borderRadius: "26px",
-      padding: isMobile ? "20px" : "24px",
-      boxShadow: "0 18px 40px rgba(24,48,36,0.05)",
+      borderRadius: 20,
+      background: "rgba(255,255,255,0.74)",
+      border: "1px solid rgba(255,255,255,0.88)",
+      padding: 22,
+      boxShadow: "0 22px 45px rgba(40,70,52,0.07)",
     },
+
     featureDot: {
-      width: "12px",
-      height: "12px",
-      borderRadius: "999px",
-      background: "linear-gradient(135deg, #7bcf9b 0%, #d7b66f 100%)",
-      marginBottom: "14px",
+      width: 13,
+      height: 13,
+      borderRadius: 999,
+      background: "linear-gradient(135deg, #7bcf9b, #d6b86e)",
+      marginBottom: 18,
     },
+
     featureTitle: {
       margin: 0,
-      fontSize: isMobile ? "21px" : "24px",
+      color: "#1d3026",
+      fontSize: 21,
+      fontWeight: 900,
+      letterSpacing: 0,
     },
+
     featureText: {
-      marginTop: "10px",
-      color: "#5a7063",
-      lineHeight: 1.75,
-      fontSize: "16px",
+      margin: "12px 0 0",
+      color: "#607268",
+      fontSize: 15,
+      lineHeight: 1.72,
     },
   };
 }
